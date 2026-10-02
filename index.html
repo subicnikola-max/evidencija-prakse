@@ -1,6 +1,6 @@
 <!doctype html>
 <html lang="hr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Evidencija prakse V8.5</title>
+<title>Evidencija prakse V8.6</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
 body{font-family:Arial,sans-serif;background:#f4f6f8;margin:0;color:#172033}.wrap{max-width:520px;margin:35px auto;padding:18px}
@@ -40,13 +40,13 @@ table th,table td{padding:6px 5px;border-bottom:1px solid #e5e7eb;text-align:lef
 <div id="tab-ucenici" class="hidden"><h3>Učenici</h3><button onclick="loadUcenici()">Osvježi učenike</button><div id="uceniciList"></div></div>
 <div id="tab-lokacije" class="hidden"><h3>Lokacije</h3><div class="info"><b>Fiksne lokacije prakse</b><p class="muted">Lokaciju unosi samo administrator. GPS koordinate i radijus ostaju fiksni za učenike i mentore povezane s tom lokacijom.</p><input id="lok-naziv" placeholder="Naziv lokacije"><input id="lok-adresa" placeholder="Adresa"><input id="lok-lat" type="number" step="any" placeholder="Latitude"><input id="lok-lon" type="number" step="any" placeholder="Longitude"><input id="lok-rad" type="number" value="100" placeholder="Radijus (m)"><label style="display:flex;gap:8px;align-items:center;margin:10px 0"><input id="lok-aktivna" type="checkbox" checked style="width:auto;margin:0"> Aktivna lokacija</label><input id="lok-edit-id" type="hidden"><button id="lok-save-btn" onclick="saveLokacija()">Dodaj lokaciju</button><button id="lok-cancel-btn" class="hidden" style="background:#6b7280" onclick="cancelLokacijaEdit()">Odustani od uređivanja</button></div><button onclick="loadLokacijeAdmin()">Osvježi lokacije</button><div id="lokacijeList"></div></div>
 <div id="tab-mentori" class="hidden"><h3>Mentori</h3><div class="info"><b>Dodaj mentora</b><input id="men-ime" placeholder="Ime i prezime"><input id="men-email" type="email" placeholder="E-mail"><input id="men-mob" placeholder="Mobitel"><select id="men-lok"><option value="">Lokacija —</option></select><button onclick="addMentor()">Dodaj mentora</button></div><button onclick="loadSimple('Mentori','mentoriList')">Osvježi mentore</button><div id="mentoriList"></div></div>
-<div id="tab-skole" class="hidden"><h3>Škole</h3><div class="info"><b>Dodaj školu</b><input id="sko-naziv" placeholder="Naziv škole"><input id="sko-adresa" placeholder="Adresa"><input id="sko-mjesto" placeholder="Mjesto"><input id="sko-email" type="email" placeholder="E-mail"><input id="sko-tel" placeholder="Telefon"><button onclick="addSkola()">Dodaj školu</button></div><button onclick="loadSimple('Skole','skoleList')">Osvježi škole</button><div id="skoleList"></div></div>
+<div id="tab-skole" class="hidden"><h3>Škole</h3><div class="info"><b>Dodaj školu</b><input id="sko-naziv" placeholder="Naziv škole"><input id="sko-adresa" placeholder="Adresa"><input id="sko-mjesto" placeholder="Mjesto"><input id="sko-email" type="email" placeholder="E-mail škole"><input id="sko-tel" placeholder="Telefon"><button onclick="addSkola()">Dodaj školu</button></div><button onclick="loadSkoleAdmin()">Osvježi škole</button><div id="skoleList"></div></div>
 <div id="tab-razrednici" class="hidden"><h3>Razrednici</h3><div class="info"><b>Dodaj razrednika</b><input id="raz-ime" placeholder="Ime i prezime"><input id="raz-email" type="email" placeholder="E-mail"><input id="raz-mob" placeholder="Mobitel"><select id="raz-sko"><option value="">Škola —</option></select><button onclick="addRazrednik()">Dodaj razrednika</button></div><button onclick="loadSimple('Razrednici','razredniciList')">Osvježi razrednike</button><div id="razredniciList"></div></div>
 <div id="tab-izvjestaj" class="hidden"><h3>Mjesečni izvještaj škole</h3><div class="info"><label>Mjesec</label><input id="izv-mjesec" type="month"><label>Škola</label><select id="izv-skola"><option value="">Odaberi školu —</option></select><button id="izv-pregled" type="button" onclick="mjesecniIzvjestajSkole()">Pregled izvještaja</button></div><div id="izv-meta" class="info hidden"></div><div id="izv-summary" class="info hidden"></div><div style="overflow:auto"><table id="izv-table" style="width:100%;border-collapse:collapse;font-size:13px"></table></div></div>
 <div id="tab-roditelji" class="hidden"><h3>Roditelji</h3><div class="info"><b>Dodaj roditelja / skrbnika</b><input id="rod-ime" placeholder="Ime i prezime"><input id="rod-email" type="email" placeholder="E-mail"><input id="rod-mob" placeholder="Mobitel"><button onclick="addRoditelj()">Dodaj roditelja</button></div><button onclick="loadSimple('Roditelji','roditeljiList')">Osvježi roditelje</button><div id="roditeljiList"></div></div>
 </div>
 <button id="logout">Odjava</button></div>
-<div id="msg"></div><p class="muted">V8.5 · evidencija prakse · mjesečni izvještaj škole · GPS kontrola · radno vrijeme · administracija</p>
+<div id="msg"></div><p class="muted">V8.6 · evidencija prakse · primatelji izvještaja · GPS kontrola · radno vrijeme · administracija</p>
 </div></div><script>
 const SUPABASE_URL="https://mfpysfuzcoampyrzyern.supabase.co"; const SUPABASE_KEY="sb_publishable_qcv2gskJS57eOspClvEVKA_DLMSrFrA"; const sb=window.supabase.createClient(SUPABASE_URL,SUPABASE_KEY);
 const $=x=>document.getElementById(x), say=x=>$("msg").textContent=x;
@@ -175,7 +175,7 @@ function showAdminTab(name){
  if(name==="ucenici")loadUcenici();
  if(name==="lokacije")loadLokacijeAdmin();
  if(name==="mentori"){loadMentorLokacije();loadSimple("Mentori","mentoriList");}
- if(name==="skole")loadSimple("Skole","skoleList");
+ if(name==="skole")loadSkoleAdmin();
  if(name==="razrednici"){loadRazrednikSkole();loadSimple("Razrednici","razredniciList");}
  if(name==="roditelji")loadSimple("Roditelji","roditeljiList");
   if(name==="izvjestaj")loadIzvjestajSkole();
@@ -183,7 +183,7 @@ function showAdminTab(name){
 async function loadIzvjestajSkole(){
   const now=new Date();
   if(!$('izv-mjesec').value){$('izv-mjesec').value=new Intl.DateTimeFormat('en-CA',{timeZone:'Europe/Zagreb',year:'numeric',month:'2-digit'}).format(now);}
-  const r=await sb.from('Skole').select('id,naziv,email').eq('aktivna',true).order('naziv');
+  const r=await sb.from('Skole').select('id,naziv,email,email_izvjestaj,automatsko_slanje').eq('aktivna',true).order('naziv');
   if(r.error){say('Greška učitavanja škola: '+r.error.message);return}
   $('izv-skola').innerHTML='<option value="">Odaberi školu —</option>'+(r.data||[]).map(x=>`<option value="${x.id}">${htmlEsc(x.naziv)}</option>`).join('');
 }
@@ -211,7 +211,7 @@ async function mjesecniIzvjestajSkole(){
   Object.values(by).forEach(x=>{const a=agg[x.user_id];if(!a)return;a.dani++;if(x.dolazak&&x.odlazak)a.ms+=new Date(x.odlazak)-new Date(x.dolazak);else a.nepotpuno++;const p=prof[x.user_id],start=timeToMin(p?.pocetak_prakse,480),end=timeToMin(p?.kraj_prakse,960),tol=Number(p?.tolerancija_min??30);if(x.dolazak&&hrMinute(x.dolazak)>start+tol)a.kasni++;if(x.odlazak&&hrMinute(x.odlazak)<end-tol)a.rani++;});
   const rows=Object.values(agg);
   const sk=sr.data||{}, raz=rr.data||[];
-  $('izv-meta').classList.remove('hidden');$('izv-meta').innerHTML=`<b>${htmlEsc(sk.naziv||'')}</b><br>Mjesec: ${htmlEsc(mjesec)}<br>Razrednik/ci: ${raz.length?raz.map(x=>htmlEsc(x.ime_prezime)+(x.email?' &lt;'+htmlEsc(x.email)+'&gt;':'')).join(', '):'nije upisan'}<br>E-mail škole: ${htmlEsc(sk.email||'nije upisan')}`;
+  $('izv-meta').classList.remove('hidden');$('izv-meta').innerHTML=`<b>${htmlEsc(sk.naziv||'')}</b><br>Mjesec: ${htmlEsc(mjesec)}<br>Razrednik/ci: ${raz.length?raz.map(x=>htmlEsc(x.ime_prezime)+(x.email?' &lt;'+htmlEsc(x.email)+'&gt;':'')).join(', '):'nije upisan'}<br>E-mail škole: ${htmlEsc(sk.email||'nije upisan')}<br><b>E-mail za izvještaj:</b> ${htmlEsc(sk.email_izvjestaj||'nije upisan')}<br><b>Automatsko slanje:</b> ${sk.automatsko_slanje?'DA':'NE'}`;
   $('izv-table').innerHTML='<tr><th>Učenik</th><th>Razred</th><th>Dana</th><th>Ukupno</th><th>Kašnjenja</th><th>Raniji odl.</th><th>Nepotpuno</th></tr>'+rows.map(x=>`<tr><td>${htmlEsc(x.ime)}</td><td>${htmlEsc(x.razred)}</td><td>${x.dani}</td><td>${trajanje(x.ms)}</td><td>${x.kasni}</td><td>${x.rani}</td><td>${x.nepotpuno}</td></tr>`).join('');
   const total=rows.reduce((z,x)=>z+x.ms,0), days=rows.reduce((z,x)=>z+x.dani,0);
   $('izv-summary').classList.remove('hidden');$('izv-summary').textContent=`Učenika: ${rows.length} · evidentiranih dana: ${days} · ukupno: ${trajanje(total)}`;say('Mjesečni izvještaj je spreman za pregled.');
@@ -241,6 +241,21 @@ async function addMentor(){
  const r=await sb.from("Mentori").insert(row); if(r.error){say("Greška dodavanja mentora: "+r.error.message);return}
  $("men-ime").value=$("men-email").value=$("men-mob").value="";$("men-lok").value="";say("Mentor je dodan.");loadSimple("Mentori","mentoriList");
 }
+
+async function loadSkoleAdmin(){
+ const r=await sb.from("Skole").select("*").order("naziv");
+ if(r.error){$("skoleList").innerHTML=`<div class="info">Greška: ${htmlEsc(r.error.message)}</div>`;return}
+ const rows=r.data||[];
+ $("skoleList").innerHTML=rows.length?rows.map(x=>`<div class="info"><b>${htmlEsc(x.naziv||"")}</b><br><span class="muted">${htmlEsc(x.adresa||"")} ${htmlEsc(x.mjesto||"")}</span><label>E-mail za slanje izvještaja</label><input id="sko-izv-${x.id}" type="email" value="${htmlEsc(x.email_izvjestaj||"")}" placeholder="npr. razrednik@skola.hr"><label style="display:flex;gap:8px;align-items:center;margin:10px 0"><input id="sko-auto-${x.id}" type="checkbox" style="width:auto;margin:0" ${x.automatsko_slanje?"checked":""}> Aktivno automatsko slanje</label><button type="button" onclick="saveSkolaIzvjestaj(${x.id})">Spremi postavke slanja</button></div>`).join(""):'<div class="info">Još nema škola.</div>';
+}
+async function saveSkolaIzvjestaj(id){
+ const email=$("sko-izv-"+id).value.trim()||null, aktivno=$("sko-auto-"+id).checked;
+ if(aktivno&&!email){say("Za aktivno automatsko slanje prvo upišite e-mail primatelja.");return}
+ const r=await sb.from("Skole").update({email_izvjestaj:email,automatsko_slanje:aktivno}).eq("id",id);
+ if(r.error){say("Greška spremanja postavki škole: "+r.error.message);return}
+ say("Postavke slanja za školu su spremljene.");
+}
+
 async function addSkola(){
  const naziv=$("sko-naziv").value.trim(); if(!naziv){say("Upišite naziv škole.");return}
  const row={naziv,adresa:$("sko-adresa").value.trim()||null,mjesto:$("sko-mjesto").value.trim()||null,email:$("sko-email").value.trim()||null,telefon:$("sko-tel").value.trim()||null,aktivna:true};
