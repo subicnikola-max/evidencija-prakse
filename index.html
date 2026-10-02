@@ -1,6 +1,6 @@
 <!doctype html>
 <html lang="hr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Evidencija prakse V8.7</title>
+<title>Evidencija prakse V8.8</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
 body{font-family:Arial,sans-serif;background:#f4f6f8;margin:0;color:#172033}.wrap{max-width:520px;margin:35px auto;padding:18px}
@@ -46,7 +46,7 @@ table th,table td{padding:6px 5px;border-bottom:1px solid #e5e7eb;text-align:lef
 <div id="tab-roditelji" class="hidden"><h3>Roditelji</h3><div class="info"><b>Dodaj roditelja / skrbnika</b><input id="rod-ime" placeholder="Ime i prezime"><input id="rod-email" type="email" placeholder="E-mail"><input id="rod-mob" placeholder="Mobitel"><button onclick="addRoditelj()">Dodaj roditelja</button></div><button onclick="loadSimple('Roditelji','roditeljiList')">Osvježi roditelje</button><div id="roditeljiList"></div></div>
 </div>
 <button id="logout">Odjava</button></div>
-<div id="msg"></div><p class="muted">V8.7 · evidencija prakse · PDF mjesečni izvještaj · primatelji izvještaja · administracija</p>
+<div id="msg"></div><p class="muted">V8.8 · evidencija prakse · potvrda odlaska · administratorski ispravak · administracija</p>
 </div></div><script>
 const SUPABASE_URL="https://mfpysfuzcoampyrzyern.supabase.co"; const SUPABASE_KEY="sb_publishable_qcv2gskJS57eOspClvEVKA_DLMSrFrA"; const sb=window.supabase.createClient(SUPABASE_URL,SUPABASE_KEY);
 const $=x=>document.getElementById(x), say=x=>$("msg").textContent=x;
@@ -143,22 +143,35 @@ async function adminPregled(){
  const by={};
  for(const e of rows){
    const d=hrDate(e.created_at), k=(e.user_id||e.ucenik)+"|"+d;
-   by[k]??={user_id:e.user_id,ucenik:e.ucenik,datum:d,lokacija:e.lokacija,dolazak:null,odlazak:null};
+   by[k]??={user_id:e.user_id,ucenik:e.ucenik,datum:d,lokacija:e.lokacija,dolazak:null,odlazak:null,odlazakId:null};
    if(e.dogadaj==="DOLAZAK"&&!by[k].dolazak)by[k].dolazak=e.created_at;
-   if(e.dogadaj==="ODLAZAK")by[k].odlazak=e.created_at;
+   if(e.dogadaj==="ODLAZAK"){by[k].odlazak=e.created_at;by[k].odlazakId=e.id;}
  }
  window.adminRows=Object.values(by).map(x=>{
    const ms=x.dolazak&&x.odlazak?new Date(x.odlazak)-new Date(x.dolazak):null;
    return {...x,dolazakVrijeme:x.dolazak?fmt(x.dolazak):"",odlazakVrijeme:x.odlazak?fmt(x.odlazak):"",ms,trajanje:trajanje(ms),status:radniStatus(x,prof[x.user_id])};
  });
  const t=$("adminTable");
- t.innerHTML="<tr><th>Učenik</th><th>Datum</th><th>Dolazak</th><th>Odlazak</th><th>Vrijeme</th><th>Status</th></tr>"+
- window.adminRows.map(x=>`<tr><td>${x.ucenik}</td><td>${x.datum}</td><td>${x.dolazakVrijeme||"—"}</td><td>${x.odlazakVrijeme||"—"}</td><td>${x.trajanje||"u tijeku"}</td><td style="white-space:normal;min-width:110px">${x.status}</td></tr>`).join("");
+ t.innerHTML="<tr><th>Učenik</th><th>Datum</th><th>Dolazak</th><th>Odlazak</th><th>Vrijeme</th><th>Status</th><th>Ispravak</th></tr>"+
+ window.adminRows.map(x=>`<tr><td>${x.ucenik}</td><td>${x.datum}</td><td>${x.dolazakVrijeme||"—"}</td><td>${x.odlazakVrijeme||"—"}</td><td>${x.trajanje||"u tijeku"}</td><td style="white-space:normal;min-width:110px">${x.status}</td><td>${x.odlazakId?`<button type="button" class="red" style="padding:8px;font-size:12px;min-width:115px" onclick="ponistiOdlazak(${x.odlazakId},'${String(x.ucenik||'').replace(/'/g,"\\'")}','${x.datum}')">Poništi odlazak</button>`:'—'}</td></tr>`).join("");
  const total=window.adminRows.reduce((a,x)=>a+(x.ms||0),0);
  $("adminSummary").classList.remove("hidden");
  $("adminSummary").textContent=`Ukupno evidentirano: ${trajanje(total)} · broj dana: ${window.adminRows.length}`;
  say(`Prikazano dana evidencije: ${window.adminRows.length}`);
 }
+async function ponistiOdlazak(id,ucenik,datum){
+ const ok=confirm(`Poništiti evidentirani ODLAZAK za ${ucenik} (${datum})?\n\nUčenik će nakon toga moći ponovno evidentirati odlazak. Ispravak će ostati zabilježen u dnevniku.`);
+ if(!ok)return;
+ const razlog=prompt("Razlog ispravka:","Slučajno evidentiran odlazak");
+ if(razlog===null)return;
+ if(!razlog.trim()){say("Upišite razlog ispravka.");return}
+ say("Poništavam pogrešan odlazak…");
+ const r=await sb.rpc("ponisti_odlazak",{p_evidencija_id:Number(id),p_razlog:razlog.trim()});
+ if(r.error){say("Greška poništavanja odlaska: "+r.error.message);return}
+ say(`Odlazak za ${ucenik} je poništen. Učenik može ponovno evidentirati odlazak.`);
+ await adminPregled();
+}
+
 function csvExport(){
  const a=window.adminRows||[];if(!a.length){say("Prvo kliknite Prikaži evidenciju.");return}
  const esc=v=>'"'+String(v??"").replaceAll('"','""')+'"';
@@ -359,5 +372,5 @@ $("loginBtn").onclick=async()=>{try{
  if(x.error){say("Prijava nije uspjela: "+x.error.message);return}
  say("Prijava uspješna."); await load();
 }catch(e){say("Greška aplikacije: "+(e?.message||e));}};
-$("dolazak").onclick=()=>record("DOLAZAK");$("odlazak").onclick=()=>record("ODLAZAK");$("mojaEvidencijaBtn").onclick=()=>{$("mojaEvidencija").classList.toggle("hidden")};$("mojDanas").onclick=()=>mojaEvidencija("danas");$("mojMjesec").onclick=()=>mojaEvidencija("mjesec");$("mojUkupno").onclick=()=>mojaEvidencija("ukupno");$("logout").onclick=async()=>{await sb.auth.signOut();location.reload()};load();
+$("dolazak").onclick=()=>record("DOLAZAK");$("odlazak").onclick=()=>{if(confirm("Želite li evidentirati ODLAZAK?\n\nNakon potvrde završavate današnju praksu i odlazak se više ne može ponovno evidentirati bez administratorskog ispravka."))record("ODLAZAK")};$("mojaEvidencijaBtn").onclick=()=>{$("mojaEvidencija").classList.toggle("hidden")};$("mojDanas").onclick=()=>mojaEvidencija("danas");$("mojMjesec").onclick=()=>mojaEvidencija("mjesec");$("mojUkupno").onclick=()=>mojaEvidencija("ukupno");$("logout").onclick=async()=>{await sb.auth.signOut();location.reload()};load();
 </script></body></html>
