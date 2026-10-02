@@ -1,6 +1,6 @@
 <!doctype html>
 <html lang="hr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Evidencija prakse V8.1</title>
+<title>Evidencija prakse V8.2</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
 body{font-family:Arial,sans-serif;background:#f4f6f8;margin:0;color:#172033}.wrap{max-width:520px;margin:35px auto;padding:18px}
@@ -37,14 +37,14 @@ table th,table td{padding:6px 5px;border-bottom:1px solid #e5e7eb;text-align:lef
 <div style="overflow:auto"><table id="adminTable" style="width:100%;border-collapse:collapse;font-size:14px"></table></div>
 </div>
 <div id="tab-ucenici" class="hidden"><h3>Učenici</h3><button onclick="loadUcenici()">Osvježi učenike</button><div id="uceniciList"></div></div>
-<div id="tab-lokacije" class="hidden"><h3>Lokacije</h3><div class="info"><b>Dodaj lokaciju</b><input id="lok-naziv" placeholder="Naziv"><input id="lok-adresa" placeholder="Adresa"><input id="lok-lat" type="number" step="any" placeholder="Latitude"><input id="lok-lon" type="number" step="any" placeholder="Longitude"><input id="lok-rad" type="number" value="100" placeholder="Radijus (m)"><button onclick="addLokacija()">Dodaj lokaciju</button></div><button onclick="loadSimple('Lokacije','lokacijeList')">Osvježi lokacije</button><div id="lokacijeList"></div></div>
+<div id="tab-lokacije" class="hidden"><h3>Lokacije</h3><div class="info"><b>Fiksne lokacije prakse</b><p class="muted">Lokaciju unosi samo administrator. GPS koordinate i radijus ostaju fiksni za učenike i mentore povezane s tom lokacijom.</p><input id="lok-naziv" placeholder="Naziv lokacije"><input id="lok-adresa" placeholder="Adresa"><input id="lok-lat" type="number" step="any" placeholder="Latitude"><input id="lok-lon" type="number" step="any" placeholder="Longitude"><input id="lok-rad" type="number" value="100" placeholder="Radijus (m)"><label style="display:flex;gap:8px;align-items:center;margin:10px 0"><input id="lok-aktivna" type="checkbox" checked style="width:auto;margin:0"> Aktivna lokacija</label><input id="lok-edit-id" type="hidden"><button id="lok-save-btn" onclick="saveLokacija()">Dodaj lokaciju</button><button id="lok-cancel-btn" class="hidden" style="background:#6b7280" onclick="cancelLokacijaEdit()">Odustani od uređivanja</button></div><button onclick="loadLokacijeAdmin()">Osvježi lokacije</button><div id="lokacijeList"></div></div>
 <div id="tab-mentori" class="hidden"><h3>Mentori</h3><div class="info"><b>Dodaj mentora</b><input id="men-ime" placeholder="Ime i prezime"><input id="men-email" type="email" placeholder="E-mail"><input id="men-mob" placeholder="Mobitel"><select id="men-lok"><option value="">Lokacija —</option></select><button onclick="addMentor()">Dodaj mentora</button></div><button onclick="loadSimple('Mentori','mentoriList')">Osvježi mentore</button><div id="mentoriList"></div></div>
 <div id="tab-skole" class="hidden"><h3>Škole</h3><div class="info"><b>Dodaj školu</b><input id="sko-naziv" placeholder="Naziv škole"><input id="sko-adresa" placeholder="Adresa"><input id="sko-mjesto" placeholder="Mjesto"><input id="sko-email" type="email" placeholder="E-mail"><input id="sko-tel" placeholder="Telefon"><button onclick="addSkola()">Dodaj školu</button></div><button onclick="loadSimple('Skole','skoleList')">Osvježi škole</button><div id="skoleList"></div></div>
 <div id="tab-razrednici" class="hidden"><h3>Razrednici</h3><div class="info"><b>Dodaj razrednika</b><input id="raz-ime" placeholder="Ime i prezime"><input id="raz-email" type="email" placeholder="E-mail"><input id="raz-mob" placeholder="Mobitel"><select id="raz-sko"><option value="">Škola —</option></select><button onclick="addRazrednik()">Dodaj razrednika</button></div><button onclick="loadSimple('Razrednici','razredniciList')">Osvježi razrednike</button><div id="razredniciList"></div></div>
 <div id="tab-roditelji" class="hidden"><h3>Roditelji</h3><div class="info"><b>Dodaj roditelja / skrbnika</b><input id="rod-ime" placeholder="Ime i prezime"><input id="rod-email" type="email" placeholder="E-mail"><input id="rod-mob" placeholder="Mobitel"><button onclick="addRoditelj()">Dodaj roditelja</button></div><button onclick="loadSimple('Roditelji','roditeljiList')">Osvježi roditelje</button><div id="roditeljiList"></div></div>
 </div>
 <button id="logout">Odjava</button></div>
-<div id="msg"></div><p class="muted">V8.1 · evidencija prakse · GPS kontrola · administracija</p>
+<div id="msg"></div><p class="muted">V8.2 · evidencija prakse · GPS kontrola · fiksne lokacije · administracija</p>
 </div></div><script>
 const SUPABASE_URL="https://mfpysfuzcoampyrzyern.supabase.co"; const SUPABASE_KEY="sb_publishable_qcv2gskJS57eOspClvEVKA_DLMSrFrA"; const sb=window.supabase.createClient(SUPABASE_URL,SUPABASE_KEY);
 const $=x=>document.getElementById(x), say=x=>$("msg").textContent=x;
@@ -142,7 +142,7 @@ function showAdminTab(name){
  const names=["evidencija","ucenici","lokacije","mentori","skole","razrednici","roditelji"];
  names.forEach(n=>$("tab-"+n).classList.toggle("hidden",n!==name));
  if(name==="ucenici")loadUcenici();
- if(name==="lokacije")loadSimple("Lokacije","lokacijeList");
+ if(name==="lokacije")loadLokacijeAdmin();
  if(name==="mentori"){loadMentorLokacije();loadSimple("Mentori","mentoriList");}
  if(name==="skole")loadSimple("Skole","skoleList");
  if(name==="razrednici"){loadRazrednikSkole();loadSimple("Razrednici","razredniciList");}
@@ -190,11 +190,27 @@ async function addRoditelj(){
  const r=await sb.from("Roditelji").insert(row); if(r.error){say("Greška dodavanja roditelja: "+r.error.message);return}
  $("rod-ime").value=$("rod-email").value=$("rod-mob").value="";say("Roditelj/skrbnik je dodan.");loadSimple("Roditelji","roditeljiList");
 }
-async function addLokacija(){
- const naziv=$("lok-naziv").value.trim(),adresa=$("lok-adresa").value.trim(),lat=Number($("lok-lat").value),lon=Number($("lok-lon").value),rad=Number($("lok-rad").value||100);
- if(!naziv||!adresa||!Number.isFinite(lat)||!Number.isFinite(lon)){say("Za lokaciju upišite naziv, adresu, latitude i longitude.");return}
- const r=await sb.from("Lokacije").insert({naziv,adresa,latitude:lat,longitude:lon,radijus:rad,aktivna:true});if(r.error){say("Greška dodavanja lokacije: "+r.error.message);return}
- ["lok-naziv","lok-adresa","lok-lat","lok-lon"].forEach(id=>$(id).value="");$("lok-rad").value="100";say("Lokacija je dodana.");loadSimple("Lokacije","lokacijeList");
+async function saveLokacija(){
+ const id=$("lok-edit-id").value,naziv=$("lok-naziv").value.trim(),adresa=$("lok-adresa").value.trim();
+ const latitude=Number($("lok-lat").value),longitude=Number($("lok-lon").value),radijus=Number($("lok-rad").value),aktivna=$("lok-aktivna").checked;
+ if(!naziv||!adresa||!Number.isFinite(latitude)||!Number.isFinite(longitude)||!Number.isFinite(radijus)||radijus<=0){say("Upišite naziv, adresu, ispravne GPS koordinate i radijus.");return}
+ const payload={naziv,adresa,latitude,longitude,radijus,aktivna};
+ const r=id?await sb.from("Lokacije").update(payload).eq("id",Number(id)):await sb.from("Lokacije").insert(payload);
+ if(r.error){say("Greška spremanja lokacije: "+r.error.message);return}
+ cancelLokacijaEdit();say(id?"Lokacija je ažurirana.":"Lokacija je dodana.");await loadLokacijeAdmin();await loadMentorLokacije();
+}
+function cancelLokacijaEdit(){
+ $("lok-edit-id").value="";["lok-naziv","lok-adresa","lok-lat","lok-lon"].forEach(id=>$(id).value="");$("lok-rad").value="100";$("lok-aktivna").checked=true;$("lok-save-btn").textContent="Dodaj lokaciju";$("lok-cancel-btn").classList.add("hidden");
+}
+function editLokacija(id){
+ const x=(window.adminLokacije||[]).find(v=>String(v.id)===String(id));if(!x)return;
+ $("lok-edit-id").value=x.id;$("lok-naziv").value=x.naziv||"";$("lok-adresa").value=x.adresa||"";$("lok-lat").value=x.latitude??"";$("lok-lon").value=x.longitude??"";$("lok-rad").value=x.radijus??100;$("lok-aktivna").checked=x.aktivna!==false;$("lok-save-btn").textContent="Spremi promjene";$("lok-cancel-btn").classList.remove("hidden");
+}
+async function loadLokacijeAdmin(){
+ const r=await sb.from("Lokacije").select("*").order("naziv");if(r.error){say("Greška: "+r.error.message);return}
+ window.adminLokacije=r.data||[];const el=$("lokacijeList");
+ if(!window.adminLokacije.length){el.innerHTML='<div class="info">Još nema zapisa.</div>';return}
+ el.innerHTML=window.adminLokacije.map(x=>`<div class="info"><b>${x.naziv||""}</b><br>${x.adresa||""}<br><span class="muted">GPS: ${x.latitude}, ${x.longitude} · radijus ${x.radijus} m · ${x.aktivna===false?"neaktivna":"aktivna"}</span><button type="button" onclick="editLokacija('${x.id}')">Uredi lokaciju</button></div>`).join("");
 }
 
 async function loadUcenici(){
