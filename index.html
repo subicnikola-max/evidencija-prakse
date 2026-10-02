@@ -1,6 +1,6 @@
 <!doctype html>
 <html lang="hr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Evidencija prakse V8.3</title>
+<title>Evidencija prakse V8.4</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
 body{font-family:Arial,sans-serif;background:#f4f6f8;margin:0;color:#172033}.wrap{max-width:520px;margin:35px auto;padding:18px}
@@ -13,7 +13,7 @@ table th,table td{padding:6px 5px;border-bottom:1px solid #e5e7eb;text-align:lef
 <h1>Evidencija prakse</h1>
 <div id="login"><input id="email" type="email" placeholder="Email"><input id="password" type="password" placeholder="Lozinka"><button id="loginBtn">Prijava</button></div>
 <div id="app" class="hidden"><div class="info" id="info"></div><div class="info" id="status"></div>
-<button id="dolazak">Evidentiraj DOLAZAK</button><button id="odlazak" class="red">Evidentiraj ODLAZAK</button>
+<div id="studentActions"><button id="dolazak">Evidentiraj DOLAZAK</button><button id="odlazak" class="red">Evidentiraj ODLAZAK</button><button id="mojaEvidencijaBtn" type="button">Moja evidencija</button><div id="mojaEvidencija" class="hidden"><h3>Moja evidencija</h3><div style="display:flex;gap:6px;flex-wrap:wrap"><button id="mojDanas" type="button" style="flex:1">Danas</button><button id="mojMjesec" type="button" style="flex:1">Ovaj mjesec</button><button id="mojUkupno" type="button" style="flex:1">Ukupno</button></div><div id="mojaSummary" class="info hidden"></div><div style="overflow:auto"><table id="mojaTable" style="width:100%;border-collapse:collapse;font-size:13px"></table></div></div></div>
 <div id="adminBox" class="hidden">
 <hr><h2>Administracija</h2>
 <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px">
@@ -44,7 +44,7 @@ table th,table td{padding:6px 5px;border-bottom:1px solid #e5e7eb;text-align:lef
 <div id="tab-roditelji" class="hidden"><h3>Roditelji</h3><div class="info"><b>Dodaj roditelja / skrbnika</b><input id="rod-ime" placeholder="Ime i prezime"><input id="rod-email" type="email" placeholder="E-mail"><input id="rod-mob" placeholder="Mobitel"><button onclick="addRoditelj()">Dodaj roditelja</button></div><button onclick="loadSimple('Roditelji','roditeljiList')">Osvježi roditelje</button><div id="roditeljiList"></div></div>
 </div>
 <button id="logout">Odjava</button></div>
-<div id="msg"></div><p class="muted">V8.3 · evidencija prakse · GPS kontrola · kontrola radnog vremena · administracija</p>
+<div id="msg"></div><p class="muted">V8.4 · evidencija prakse · GPS kontrola · radno vrijeme · osobna evidencija · administracija</p>
 </div></div><script>
 const SUPABASE_URL="https://mfpysfuzcoampyrzyern.supabase.co"; const SUPABASE_KEY="sb_publishable_qcv2gskJS57eOspClvEVKA_DLMSrFrA"; const sb=window.supabase.createClient(SUPABASE_URL,SUPABASE_KEY);
 const $=x=>document.getElementById(x), say=x=>$("msg").textContent=x;
@@ -60,6 +60,9 @@ async function load(){
  $("login").classList.add("hidden");$("app").classList.remove("hidden");
  const isAdmin=(user.email||"").toLowerCase()==="subic.nikola@gmail.com";
  $("adminBox").classList.toggle("hidden",!isAdmin);
+ $("studentActions").classList.toggle("hidden",isAdmin);
+ $("info").classList.toggle("hidden",isAdmin);
+ $("status").classList.toggle("hidden",isAdmin);
  let r=await sb.from("Učenici").select("*").eq("user_id",user.id).maybeSingle();
  if(r.error||!r.data){say("Za prijavljenog korisnika nije pronađen zapis u tablici Učenici.");return} student=r.data;
  $("info").textContent=`${student.ime_prezime} · ${student.lokacija} · dopušteni radijus ${student.radijus} m`;
@@ -98,51 +101,67 @@ function trajanje(ms){
  const min=Math.floor(ms/60000), h=Math.floor(min/60), m=min%60;
  return `${h} h ${m} min`;
 }
+function hrMinute(ts){
+ const parts=new Intl.DateTimeFormat("hr-HR",{timeZone:"Europe/Zagreb",hour:"2-digit",minute:"2-digit",hour12:false}).formatToParts(new Date(ts));
+ const h=Number(parts.find(x=>x.type==="hour")?.value||0),m=Number(parts.find(x=>x.type==="minute")?.value||0); return h*60+m;
+}
+function timeToMin(v,def){if(!v)return def;const a=String(v).split(":");return Number(a[0])*60+Number(a[1]||0)}
+function radniStatus(x,profil){
+ const start=timeToMin(profil?.pocetak_prakse,480), end=timeToMin(profil?.kraj_prakse,960), tol=Number(profil?.tolerancija_min??30);
+ const st=[];
+ if(x.dolazak){const late=hrMinute(x.dolazak)-(start+tol);st.push(late>0?`KASNI ${late} min`:"DOLAZAK UREDAN")}
+ if(x.odlazak){const early=(end-tol)-hrMinute(x.odlazak);st.push(early>0?`RANI ODLAZAK ${early} min`:"ODLAZAK UREDAN")}
+ return st.join(" / ")||"—";
+}
+async function mojaEvidencija(opseg){
+ const {data:{user}}=await sb.auth.getUser(); if(!user||!student)return;
+ let q=await sb.from("Evidencija").select("*").eq("user_id",user.id).order("created_at",{ascending:true});
+ if(q.error){say("Greška čitanja moje evidencije: "+q.error.message);return}
+ const today=dayBounds().date, ym=today.slice(0,7); let rows=q.data||[];
+ if(opseg==="danas")rows=rows.filter(e=>hrDate(e.created_at)===today);
+ if(opseg==="mjesec")rows=rows.filter(e=>hrDate(e.created_at).slice(0,7)===ym);
+ const by={}; for(const e of rows){const d=hrDate(e.created_at);by[d]??={datum:d,dolazak:null,odlazak:null};if(e.dogadaj==="DOLAZAK"&&!by[d].dolazak)by[d].dolazak=e.created_at;if(e.dogadaj==="ODLAZAK")by[d].odlazak=e.created_at}
+ const a=Object.values(by).sort((a,b)=>b.datum.localeCompare(a.datum)).map(x=>{const ms=x.dolazak&&x.odlazak?new Date(x.odlazak)-new Date(x.dolazak):null;return {...x,ms,status:radniStatus(x,student)}});
+ $("mojaTable").innerHTML='<tr><th>Datum</th><th>Dolazak</th><th>Odlazak</th><th>Vrijeme</th><th>Status</th></tr>'+a.map(x=>`<tr><td>${x.datum}</td><td>${x.dolazak?fmt(x.dolazak):"—"}</td><td>${x.odlazak?fmt(x.odlazak):"—"}</td><td>${x.ms!=null?trajanje(x.ms):"u tijeku"}</td><td style="white-space:normal;min-width:110px">${x.status}</td></tr>`).join("");
+ const total=a.reduce((z,x)=>z+(x.ms||0),0);$("mojaSummary").classList.remove("hidden");$("mojaSummary").textContent=`${opseg==="danas"?"Danas":opseg==="mjesec"?"Ovaj mjesec":"Ukupno"}: ${a.length} dana · ${trajanje(total)}`;
+}
 async function adminPregled(){
  const {data:{user}}=await sb.auth.getUser();
  if(!user || (user.email||"").toLowerCase()!=="subic.nikola@gmail.com"){say("Administratorski pristup nije dopušten.");return}
  say("Učitavam evidenciju…");
- const [r,ur]=await Promise.all([
-   sb.from("Evidencija").select("*").order("created_at",{ascending:true}),
-   sb.from("Učenici").select("ime_prezime,pocetak_prakse,kraj_prakse,tolerancija_min")
- ]);
+ const r=await sb.from("Evidencija").select("*").order("created_at",{ascending:true});
  if(r.error){say("Greška administratorskog pregleda: "+r.error.message);return}
- if(ur.error){say("Greška učitavanja radnog vremena: "+ur.error.message);return}
- const raspored={};
- for(const u of (ur.data||[])) raspored[u.ime_prezime]=u;
+ const ur=await sb.from("Učenici").select("user_id,pocetak_prakse,kraj_prakse,tolerancija_min");
+ const prof={};if(!ur.error)(ur.data||[]).forEach(u=>prof[u.user_id]=u);
  const od=$("odDatum").value, dd=$("doDatum").value;
- const rows=(r.data||[]).filter(e=>{const d=hrDate(e.created_at);return (!od||d>=od)&&(!dd||d<=dd)});
+ const rows=(r.data||[]).filter(e=>{
+   const d=hrDate(e.created_at);
+   return (!od||d>=od)&&(!dd||d<=dd);
+ });
  const by={};
  for(const e of rows){
    const d=hrDate(e.created_at), k=(e.user_id||e.ucenik)+"|"+d;
-   by[k]??={ucenik:e.ucenik,datum:d,lokacija:e.lokacija,dolazak:null,odlazak:null};
+   by[k]??={user_id:e.user_id,ucenik:e.ucenik,datum:d,lokacija:e.lokacija,dolazak:null,odlazak:null};
    if(e.dogadaj==="DOLAZAK"&&!by[k].dolazak)by[k].dolazak=e.created_at;
    if(e.dogadaj==="ODLAZAK")by[k].odlazak=e.created_at;
  }
- const mins=t=>{if(!t)return null;const m=String(t).match(/^(\d{1,2}):(\d{2})/);return m?Number(m[1])*60+Number(m[2]):null};
- const localMins=ts=>{if(!ts)return null;const parts=new Intl.DateTimeFormat("en-GB",{timeZone:"Europe/Zagreb",hour:"2-digit",minute:"2-digit",hour12:false}).formatToParts(new Date(ts));const h=Number(parts.find(x=>x.type==="hour").value),m=Number(parts.find(x=>x.type==="minute").value);return h*60+m};
  window.adminRows=Object.values(by).map(x=>{
    const ms=x.dolazak&&x.odlazak?new Date(x.odlazak)-new Date(x.dolazak):null;
-   const u=raspored[x.ucenik]||{}, tol=Number(u.tolerancija_min??30), poc=mins(u.pocetak_prakse)||480, kraj=mins(u.kraj_prakse)||960;
-   const dm=localMins(x.dolazak), om=localMins(x.odlazak); let status=[];
-   if(dm!==null && dm>poc+tol) status.push(`KAŠNJENJE ${dm-(poc+tol)} min`); else if(dm!==null) status.push("DOLAZAK UREDAN");
-   if(om!==null && om<kraj-tol) status.push(`RANIJI ODLAZAK ${(kraj-tol)-om} min`); else if(om!==null) status.push("ODLAZAK UREDAN");
-   return {...x,dolazakVrijeme:x.dolazak?fmt(x.dolazak):"",odlazakVrijeme:x.odlazak?fmt(x.odlazak):"",ms,trajanje:trajanje(ms),status:status.join(" · ")};
+   return {...x,dolazakVrijeme:x.dolazak?fmt(x.dolazak):"",odlazakVrijeme:x.odlazak?fmt(x.odlazak):"",ms,trajanje:trajanje(ms),status:radniStatus(x,prof[x.user_id])};
  });
  const t=$("adminTable");
  t.innerHTML="<tr><th>Učenik</th><th>Datum</th><th>Dolazak</th><th>Odlazak</th><th>Vrijeme</th><th>Status</th></tr>"+
- window.adminRows.map(x=>`<tr><td>${htmlEsc(x.ucenik)}</td><td>${x.datum}</td><td>${x.dolazakVrijeme||"—"}</td><td>${x.odlazakVrijeme||"—"}</td><td>${x.trajanje||"u tijeku"}</td><td>${htmlEsc(x.status||"—")}</td></tr>`).join("");
+ window.adminRows.map(x=>`<tr><td>${x.ucenik}</td><td>${x.datum}</td><td>${x.dolazakVrijeme||"—"}</td><td>${x.odlazakVrijeme||"—"}</td><td>${x.trajanje||"u tijeku"}</td><td style="white-space:normal;min-width:110px">${x.status}</td></tr>`).join("");
  const total=window.adminRows.reduce((a,x)=>a+(x.ms||0),0);
  $("adminSummary").classList.remove("hidden");
  $("adminSummary").textContent=`Ukupno evidentirano: ${trajanje(total)} · broj dana: ${window.adminRows.length}`;
  say(`Prikazano dana evidencije: ${window.adminRows.length}`);
 }
-
 function csvExport(){
  const a=window.adminRows||[];if(!a.length){say("Prvo kliknite Prikaži evidenciju.");return}
  const esc=v=>'"'+String(v??"").replaceAll('"','""')+'"';
- const lines=[["Učenik","Datum","Dolazak","Odlazak","Ukupno vrijeme","Lokacija","Status"],
- ...a.map(x=>[x.ucenik,x.datum,x.dolazakVrijeme,x.odlazakVrijeme,x.trajanje||"U tijeku",x.lokacija,x.status||""])];
+ const lines=[["Učenik","Datum","Dolazak","Odlazak","Ukupno vrijeme","Lokacija"],
+ ...a.map(x=>[x.ucenik,x.datum,x.dolazakVrijeme,x.odlazakVrijeme,x.trajanje||"U tijeku",x.lokacija])];
  const csv="\ufeff"+lines.map(r=>r.map(esc).join(";")).join("\r\n");
  const b=new Blob([csv],{type:"text/csv;charset=utf-8"}),u=window.URL.createObjectURL(b),ael=document.createElement("a");
  ael.href=u;ael.download=`evidencija_prakse_${$("odDatum").value||"sve"}_${$("doDatum").value||"sve"}.csv`;ael.click();window.URL.revokeObjectURL(u);
@@ -267,5 +286,5 @@ $("loginBtn").onclick=async()=>{try{
  if(x.error){say("Prijava nije uspjela: "+x.error.message);return}
  say("Prijava uspješna."); await load();
 }catch(e){say("Greška aplikacije: "+(e?.message||e));}};
-$("dolazak").onclick=()=>record("DOLAZAK");$("odlazak").onclick=()=>record("ODLAZAK");$("logout").onclick=async()=>{await sb.auth.signOut();location.reload()};load();
+$("dolazak").onclick=()=>record("DOLAZAK");$("odlazak").onclick=()=>record("ODLAZAK");$("mojaEvidencijaBtn").onclick=()=>{$("mojaEvidencija").classList.toggle("hidden")};$("mojDanas").onclick=()=>mojaEvidencija("danas");$("mojMjesec").onclick=()=>mojaEvidencija("mjesec");$("mojUkupno").onclick=()=>mojaEvidencija("ukupno");$("logout").onclick=async()=>{await sb.auth.signOut();location.reload()};load();
 </script></body></html>
