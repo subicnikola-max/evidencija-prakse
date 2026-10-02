@@ -1,6 +1,6 @@
 <!doctype html>
 <html lang="hr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Evidencija prakse V8.8</title>
+<title>Evidencija prakse V8.9</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
 body{font-family:Arial,sans-serif;background:#f4f6f8;margin:0;color:#172033}.wrap{max-width:520px;margin:35px auto;padding:18px}
@@ -13,7 +13,7 @@ table th,table td{padding:6px 5px;border-bottom:1px solid #e5e7eb;text-align:lef
 <h1>Evidencija prakse</h1>
 <div id="login"><input id="email" type="email" placeholder="Email"><input id="password" type="password" placeholder="Lozinka"><button id="loginBtn">Prijava</button></div>
 <div id="app" class="hidden"><div class="info" id="info"></div><div class="info" id="status"></div>
-<div id="studentActions"><button id="dolazak">Evidentiraj DOLAZAK</button><button id="odlazak" class="red">Evidentiraj ODLAZAK</button><button id="mojaEvidencijaBtn" type="button">Moja evidencija</button><div id="mojaEvidencija" class="hidden"><h3>Moja evidencija</h3><div style="display:flex;gap:6px;flex-wrap:wrap"><button id="mojDanas" type="button" style="flex:1">Danas</button><button id="mojMjesec" type="button" style="flex:1">Ovaj mjesec</button><button id="mojUkupno" type="button" style="flex:1">Ukupno</button></div><div id="mojaSummary" class="info hidden"></div><div style="overflow:auto"><table id="mojaTable" style="width:100%;border-collapse:collapse;font-size:13px"></table></div></div></div>
+<div id="studentActions"><button id="dolazak">Evidentiraj DOLAZAK</button><button id="odlazak" class="red">Evidentiraj ODLAZAK</button><button id="prijaviIzostanakBtn" type="button" style="background:#d97706">Prijavi IZOSTANAK</button><div id="izostanakForm" class="info hidden"><h3>Prijavi izostanak</h3><p class="muted">Izostanak možete prijaviti s bilo koje lokacije. GPS se ne provjerava.</p><label>Od</label><input id="izostanakOd" type="date"><label>Do</label><input id="izostanakDo" type="date"><label>Razlog</label><textarea id="izostanakRazlog" rows="3" placeholder="Npr. bolest" style="box-sizing:border-box;width:100%;padding:14px;margin:7px 0;border-radius:10px;border:1px solid #ccc;font-size:16px"></textarea><button id="posaljiIzostanak" type="button">Pošalji prijavu</button><div id="mojiIzostanci"></div></div><button id="mojaEvidencijaBtn" type="button">Moja evidencija</button><div id="mojaEvidencija" class="hidden"><h3>Moja evidencija</h3><div style="display:flex;gap:6px;flex-wrap:wrap"><button id="mojDanas" type="button" style="flex:1">Danas</button><button id="mojMjesec" type="button" style="flex:1">Ovaj mjesec</button><button id="mojUkupno" type="button" style="flex:1">Ukupno</button></div><div id="mojaSummary" class="info hidden"></div><div style="overflow:auto"><table id="mojaTable" style="width:100%;border-collapse:collapse;font-size:13px"></table></div></div></div>
 <div id="adminBox" class="hidden">
 <hr><h2>Administracija</h2>
 <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px">
@@ -25,6 +25,7 @@ table th,table td{padding:6px 5px;border-bottom:1px solid #e5e7eb;text-align:lef
 <button type="button" onclick="showAdminTab('razrednici')" style="width:auto;padding:10px">Razrednici</button>
 <button type="button" onclick="showAdminTab('roditelji')" style="width:auto;padding:10px">Roditelji</button>
 <button type="button" onclick="showAdminTab('izvjestaj')" style="width:auto;padding:10px">Mjesečni izvještaj</button>
+<button type="button" onclick="showAdminTab('izostanci')" style="width:auto;padding:10px">Izostanci</button>
 </div>
 <div id="tab-evidencija">
 <h3>Evidencija</h3>
@@ -43,10 +44,11 @@ table th,table td{padding:6px 5px;border-bottom:1px solid #e5e7eb;text-align:lef
 <div id="tab-skole" class="hidden"><h3>Škole</h3><div class="info"><b>Dodaj školu</b><input id="sko-naziv" placeholder="Naziv škole"><input id="sko-adresa" placeholder="Adresa"><input id="sko-mjesto" placeholder="Mjesto"><input id="sko-email" type="email" placeholder="E-mail škole"><input id="sko-tel" placeholder="Telefon"><button onclick="addSkola()">Dodaj školu</button></div><button onclick="loadSkoleAdmin()">Osvježi škole</button><div id="skoleList"></div></div>
 <div id="tab-razrednici" class="hidden"><h3>Razrednici</h3><div class="info"><b>Dodaj razrednika</b><input id="raz-ime" placeholder="Ime i prezime"><input id="raz-email" type="email" placeholder="E-mail"><input id="raz-mob" placeholder="Mobitel"><select id="raz-sko"><option value="">Škola —</option></select><button onclick="addRazrednik()">Dodaj razrednika</button></div><button onclick="loadSimple('Razrednici','razredniciList')">Osvježi razrednike</button><div id="razredniciList"></div></div>
 <div id="tab-izvjestaj" class="hidden"><h3>Mjesečni izvještaj škole</h3><div class="info"><label>Mjesec</label><input id="izv-mjesec" type="month"><label>Škola</label><select id="izv-skola"><option value="">Odaberi školu —</option></select><button id="izv-pregled" type="button" onclick="mjesecniIzvjestajSkole()">Pregled izvještaja</button><button id="izv-pdf" type="button" onclick="pdfIzvjestajSkole()" disabled>Izradi PDF</button></div><div id="izv-meta" class="info hidden"></div><div id="izv-summary" class="info hidden"></div><div style="overflow:auto"><table id="izv-table" style="width:100%;border-collapse:collapse;font-size:13px"></table></div></div>
+<div id="tab-izostanci" class="hidden"><h3>Prijavljeni izostanci</h3><button type="button" onclick="loadAdminIzostanci()">Osvježi izostanke</button><div id="adminIzostanciList"></div></div>
 <div id="tab-roditelji" class="hidden"><h3>Roditelji</h3><div class="info"><b>Dodaj roditelja / skrbnika</b><input id="rod-ime" placeholder="Ime i prezime"><input id="rod-email" type="email" placeholder="E-mail"><input id="rod-mob" placeholder="Mobitel"><button onclick="addRoditelj()">Dodaj roditelja</button></div><button onclick="loadSimple('Roditelji','roditeljiList')">Osvježi roditelje</button><div id="roditeljiList"></div></div>
 </div>
 <button id="logout">Odjava</button></div>
-<div id="msg"></div><p class="muted">V8.8 · evidencija prakse · potvrda odlaska · administratorski ispravak · administracija</p>
+<div id="msg"></div><p class="muted">V8.9 · evidencija prakse · prijava izostanka · potvrda odlaska · administracija</p>
 </div></div><script>
 const SUPABASE_URL="https://mfpysfuzcoampyrzyern.supabase.co"; const SUPABASE_KEY="sb_publishable_qcv2gskJS57eOspClvEVKA_DLMSrFrA"; const sb=window.supabase.createClient(SUPABASE_URL,SUPABASE_KEY);
 const $=x=>document.getElementById(x), say=x=>$("msg").textContent=x;
@@ -127,6 +129,33 @@ async function mojaEvidencija(opseg){
  $("mojaTable").innerHTML='<tr><th>Datum</th><th>Dolazak</th><th>Odlazak</th><th>Vrijeme</th><th>Status</th></tr>'+a.map(x=>`<tr><td>${x.datum}</td><td>${x.dolazak?fmt(x.dolazak):"—"}</td><td>${x.odlazak?fmt(x.odlazak):"—"}</td><td>${x.ms!=null?trajanje(x.ms):"u tijeku"}</td><td style="white-space:normal;min-width:110px">${x.status}</td></tr>`).join("");
  const total=a.reduce((z,x)=>z+(x.ms||0),0);$("mojaSummary").classList.remove("hidden");$("mojaSummary").textContent=`${opseg==="danas"?"Danas":opseg==="mjesec"?"Ovaj mjesec":"Ukupno"}: ${a.length} dana · ${trajanje(total)}`;
 }
+function dateRange(od,do_){
+ const out=[];let d=new Date(od+"T12:00:00");const end=new Date(do_+"T12:00:00");
+ while(d<=end){out.push(new Intl.DateTimeFormat("en-CA",{timeZone:"Europe/Zagreb",year:"numeric",month:"2-digit",day:"2-digit"}).format(d));d.setDate(d.getDate()+1)}
+ return out;
+}
+function statusIzostanka(v){return v==="OPRAVDAN"?"OPRAVDAN":v==="NEOPRAVDAN"?"NEOPRAVDAN":"ČEKA OPRAVDANJE"}
+async function prijaviIzostanak(){
+ const {data:{user}}=await sb.auth.getUser();if(!user||!student){say("Prijavite se kao učenik.");return}
+ const od=$("izostanakOd").value,doo=$("izostanakDo").value,razlog=$("izostanakRazlog").value.trim();
+ if(!od||!doo){say("Odaberite datum OD i DO.");return}if(doo<od){say("Datum DO ne može biti prije datuma OD.");return}if(!razlog){say("Upišite razlog izostanka.");return}
+ const r=await sb.from("Izostanci").insert({user_id:user.id,ucenik:student.ime_prezime,datum_od:od,datum_do:doo,razlog,status:"CEKA_OPRAVDANJE"});
+ if(r.error){say("Greška prijave izostanka: "+r.error.message);return}
+ $("izostanakRazlog").value="";say(`Izostanak ${od} – ${doo} je prijavljen. Status: ČEKA OPRAVDANJE.`);await loadMojiIzostanci();
+}
+async function loadMojiIzostanci(){
+ const {data:{user}}=await sb.auth.getUser();if(!user)return;
+ const r=await sb.from("Izostanci").select("*").eq("user_id",user.id).order("datum_od",{ascending:false});
+ if(r.error){$("mojiIzostanci").innerHTML=`<p class="muted">Greška: ${htmlEsc(r.error.message)}</p>`;return}
+ const rows=r.data||[];let days=[];for(const x of rows){for(const d of dateRange(x.datum_od,x.datum_do))days.push({...x,dan:d})}
+ $("mojiIzostanci").innerHTML=days.length?'<h4>Moji prijavljeni izostanci</h4><div style="overflow:auto"><table style="width:100%;border-collapse:collapse"><tr><th>Datum</th><th>Izostanak / razlog</th><th>Status</th></tr>'+days.map(x=>`<tr><td>${htmlEsc(x.dan)}</td><td style="white-space:normal">IZOSTANAK – ${htmlEsc(x.razlog)}</td><td style="white-space:normal">${statusIzostanka(x.status)}</td></tr>`).join("")+'</table></div>':'<p class="muted">Nema prijavljenih izostanaka.</p>';
+}
+async function loadAdminIzostanci(){
+ const r=await sb.from("Izostanci").select("*").order("datum_od",{ascending:false});
+ if(r.error){$("adminIzostanciList").innerHTML=`<div class="info">Greška: ${htmlEsc(r.error.message)}</div>`;return}
+ const rows=r.data||[];$("adminIzostanciList").innerHTML=rows.length?rows.map(x=>`<div class="info"><b>${htmlEsc(x.ucenik)}</b><br>${htmlEsc(x.datum_od)} – ${htmlEsc(x.datum_do)}<br><b>IZOSTANAK – ${htmlEsc(x.razlog)}</b><br><span class="muted">${statusIzostanka(x.status)} · prijavljeno ${new Intl.DateTimeFormat("hr-HR",{timeZone:"Europe/Zagreb",dateStyle:"short",timeStyle:"short"}).format(new Date(x.created_at))}</span></div>`).join(""):'<div class="info">Nema prijavljenih izostanaka.</div>';
+}
+
 async function adminPregled(){
  const {data:{user}}=await sb.auth.getUser();
  if(!user || (user.email||"").toLowerCase()!=="subic.nikola@gmail.com"){say("Administratorski pristup nije dopušten.");return}
@@ -183,7 +212,7 @@ function csvExport(){
 }
 
 function showAdminTab(name){
- const names=["evidencija","ucenici","lokacije","mentori","skole","razrednici","roditelji","izvjestaj"];
+ const names=["evidencija","ucenici","lokacije","mentori","skole","razrednici","roditelji","izvjestaj","izostanci"];
  names.forEach(n=>$("tab-"+n).classList.toggle("hidden",n!==name));
  if(name==="ucenici")loadUcenici();
  if(name==="lokacije")loadLokacijeAdmin();
@@ -191,6 +220,7 @@ function showAdminTab(name){
  if(name==="skole")loadSkoleAdmin();
  if(name==="razrednici"){loadRazrednikSkole();loadSimple("Razrednici","razredniciList");}
  if(name==="roditelji")loadSimple("Roditelji","roditeljiList");
+ if(name==="izostanci")loadAdminIzostanci();
   if(name==="izvjestaj")loadIzvjestajSkole();
 }
 async function loadIzvjestajSkole(){
@@ -372,5 +402,5 @@ $("loginBtn").onclick=async()=>{try{
  if(x.error){say("Prijava nije uspjela: "+x.error.message);return}
  say("Prijava uspješna."); await load();
 }catch(e){say("Greška aplikacije: "+(e?.message||e));}};
-$("dolazak").onclick=()=>record("DOLAZAK");$("odlazak").onclick=()=>{if(confirm("Želite li evidentirati ODLAZAK?\n\nNakon potvrde završavate današnju praksu i odlazak se više ne može ponovno evidentirati bez administratorskog ispravka."))record("ODLAZAK")};$("mojaEvidencijaBtn").onclick=()=>{$("mojaEvidencija").classList.toggle("hidden")};$("mojDanas").onclick=()=>mojaEvidencija("danas");$("mojMjesec").onclick=()=>mojaEvidencija("mjesec");$("mojUkupno").onclick=()=>mojaEvidencija("ukupno");$("logout").onclick=async()=>{await sb.auth.signOut();location.reload()};load();
+$("dolazak").onclick=()=>record("DOLAZAK");$("odlazak").onclick=()=>{if(confirm("Želite li evidentirati ODLAZAK?\n\nNakon potvrde završavate današnju praksu i odlazak se više ne može ponovno evidentirati bez administratorskog ispravka."))record("ODLAZAK")};$("prijaviIzostanakBtn").onclick=()=>{$("izostanakForm").classList.toggle("hidden");if(!$("izostanakForm").classList.contains("hidden")){const d=dayBounds().date;if(!$("izostanakOd").value)$("izostanakOd").value=d;if(!$("izostanakDo").value)$("izostanakDo").value=d;loadMojiIzostanci()}};$("posaljiIzostanak").onclick=prijaviIzostanak;$("mojaEvidencijaBtn").onclick=()=>{$("mojaEvidencija").classList.toggle("hidden")};$("mojDanas").onclick=()=>mojaEvidencija("danas");$("mojMjesec").onclick=()=>mojaEvidencija("mjesec");$("mojUkupno").onclick=()=>mojaEvidencija("ukupno");$("logout").onclick=async()=>{await sb.auth.signOut();location.reload()};load();
 </script></body></html>
