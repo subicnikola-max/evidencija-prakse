@@ -1,6 +1,6 @@
 <!doctype html>
 <html lang="hr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Evidencija prakse V8.6</title>
+<title>Evidencija prakse V8.7</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
 body{font-family:Arial,sans-serif;background:#f4f6f8;margin:0;color:#172033}.wrap{max-width:520px;margin:35px auto;padding:18px}
@@ -42,11 +42,11 @@ table th,table td{padding:6px 5px;border-bottom:1px solid #e5e7eb;text-align:lef
 <div id="tab-mentori" class="hidden"><h3>Mentori</h3><div class="info"><b>Dodaj mentora</b><input id="men-ime" placeholder="Ime i prezime"><input id="men-email" type="email" placeholder="E-mail"><input id="men-mob" placeholder="Mobitel"><select id="men-lok"><option value="">Lokacija —</option></select><button onclick="addMentor()">Dodaj mentora</button></div><button onclick="loadSimple('Mentori','mentoriList')">Osvježi mentore</button><div id="mentoriList"></div></div>
 <div id="tab-skole" class="hidden"><h3>Škole</h3><div class="info"><b>Dodaj školu</b><input id="sko-naziv" placeholder="Naziv škole"><input id="sko-adresa" placeholder="Adresa"><input id="sko-mjesto" placeholder="Mjesto"><input id="sko-email" type="email" placeholder="E-mail škole"><input id="sko-tel" placeholder="Telefon"><button onclick="addSkola()">Dodaj školu</button></div><button onclick="loadSkoleAdmin()">Osvježi škole</button><div id="skoleList"></div></div>
 <div id="tab-razrednici" class="hidden"><h3>Razrednici</h3><div class="info"><b>Dodaj razrednika</b><input id="raz-ime" placeholder="Ime i prezime"><input id="raz-email" type="email" placeholder="E-mail"><input id="raz-mob" placeholder="Mobitel"><select id="raz-sko"><option value="">Škola —</option></select><button onclick="addRazrednik()">Dodaj razrednika</button></div><button onclick="loadSimple('Razrednici','razredniciList')">Osvježi razrednike</button><div id="razredniciList"></div></div>
-<div id="tab-izvjestaj" class="hidden"><h3>Mjesečni izvještaj škole</h3><div class="info"><label>Mjesec</label><input id="izv-mjesec" type="month"><label>Škola</label><select id="izv-skola"><option value="">Odaberi školu —</option></select><button id="izv-pregled" type="button" onclick="mjesecniIzvjestajSkole()">Pregled izvještaja</button></div><div id="izv-meta" class="info hidden"></div><div id="izv-summary" class="info hidden"></div><div style="overflow:auto"><table id="izv-table" style="width:100%;border-collapse:collapse;font-size:13px"></table></div></div>
+<div id="tab-izvjestaj" class="hidden"><h3>Mjesečni izvještaj škole</h3><div class="info"><label>Mjesec</label><input id="izv-mjesec" type="month"><label>Škola</label><select id="izv-skola"><option value="">Odaberi školu —</option></select><button id="izv-pregled" type="button" onclick="mjesecniIzvjestajSkole()">Pregled izvještaja</button><button id="izv-pdf" type="button" onclick="pdfIzvjestajSkole()" disabled>Izradi PDF</button></div><div id="izv-meta" class="info hidden"></div><div id="izv-summary" class="info hidden"></div><div style="overflow:auto"><table id="izv-table" style="width:100%;border-collapse:collapse;font-size:13px"></table></div></div>
 <div id="tab-roditelji" class="hidden"><h3>Roditelji</h3><div class="info"><b>Dodaj roditelja / skrbnika</b><input id="rod-ime" placeholder="Ime i prezime"><input id="rod-email" type="email" placeholder="E-mail"><input id="rod-mob" placeholder="Mobitel"><button onclick="addRoditelj()">Dodaj roditelja</button></div><button onclick="loadSimple('Roditelji','roditeljiList')">Osvježi roditelje</button><div id="roditeljiList"></div></div>
 </div>
 <button id="logout">Odjava</button></div>
-<div id="msg"></div><p class="muted">V8.6 · evidencija prakse · primatelji izvještaja · GPS kontrola · radno vrijeme · administracija</p>
+<div id="msg"></div><p class="muted">V8.7 · evidencija prakse · PDF mjesečni izvještaj · primatelji izvještaja · administracija</p>
 </div></div><script>
 const SUPABASE_URL="https://mfpysfuzcoampyrzyern.supabase.co"; const SUPABASE_KEY="sb_publishable_qcv2gskJS57eOspClvEVKA_DLMSrFrA"; const sb=window.supabase.createClient(SUPABASE_URL,SUPABASE_KEY);
 const $=x=>document.getElementById(x), say=x=>$("msg").textContent=x;
@@ -189,6 +189,7 @@ async function loadIzvjestajSkole(){
 }
 
 async function mjesecniIzvjestajSkole(){
+  $('izv-pdf').disabled=true;window.izvPdfData=null;
   const mjesec=$('izv-mjesec').value, skolaId=Number($('izv-skola').value);
   if(!mjesec||!skolaId){say('Odaberite mjesec i školu.');return}
   say('Izrađujem mjesečni izvještaj…');
@@ -214,7 +215,24 @@ async function mjesecniIzvjestajSkole(){
   $('izv-meta').classList.remove('hidden');$('izv-meta').innerHTML=`<b>${htmlEsc(sk.naziv||'')}</b><br>Mjesec: ${htmlEsc(mjesec)}<br>Razrednik/ci: ${raz.length?raz.map(x=>htmlEsc(x.ime_prezime)+(x.email?' &lt;'+htmlEsc(x.email)+'&gt;':'')).join(', '):'nije upisan'}<br>E-mail škole: ${htmlEsc(sk.email||'nije upisan')}<br><b>E-mail za izvještaj:</b> ${htmlEsc(sk.email_izvjestaj||'nije upisan')}<br><b>Automatsko slanje:</b> ${sk.automatsko_slanje?'DA':'NE'}`;
   $('izv-table').innerHTML='<tr><th>Učenik</th><th>Razred</th><th>Dana</th><th>Ukupno</th><th>Kašnjenja</th><th>Raniji odl.</th><th>Nepotpuno</th></tr>'+rows.map(x=>`<tr><td>${htmlEsc(x.ime)}</td><td>${htmlEsc(x.razred)}</td><td>${x.dani}</td><td>${trajanje(x.ms)}</td><td>${x.kasni}</td><td>${x.rani}</td><td>${x.nepotpuno}</td></tr>`).join('');
   const total=rows.reduce((z,x)=>z+x.ms,0), days=rows.reduce((z,x)=>z+x.dani,0);
-  $('izv-summary').classList.remove('hidden');$('izv-summary').textContent=`Učenika: ${rows.length} · evidentiranih dana: ${days} · ukupno: ${trajanje(total)}`;say('Mjesečni izvještaj je spreman za pregled.');
+  $('izv-summary').classList.remove('hidden');$('izv-summary').textContent=`Učenika: ${rows.length} · evidentiranih dana: ${days} · ukupno: ${trajanje(total)}`;
+  window.izvPdfData={mjesec,skola:sk,razrednici:raz,rows,total,days};
+  $('izv-pdf').disabled=false;
+  say('Mjesečni izvještaj je spreman za pregled.');
+}
+
+function mjesecNaziv(ym){
+  const [y,m]=ym.split('-').map(Number);
+  return new Intl.DateTimeFormat('hr-HR',{month:'long',year:'numeric'}).format(new Date(y,m-1,1));
+}
+function pdfIzvjestajSkole(){
+  const d=window.izvPdfData;if(!d){say('Prvo izradite pregled mjesečnog izvještaja.');return}
+  const datum=new Intl.DateTimeFormat('hr-HR',{timeZone:'Europe/Zagreb',day:'2-digit',month:'2-digit',year:'numeric'}).format(new Date());
+  const raz=d.razrednici.length?d.razrednici.map(x=>htmlEsc(x.ime_prezime)+(x.email?' &lt;'+htmlEsc(x.email)+'&gt;':'')).join(', '):'nije upisan';
+  const rows=d.rows.map(x=>`<tr><td>${htmlEsc(x.ime)}</td><td>${htmlEsc(x.razred)}</td><td>${x.dani}</td><td>${trajanje(x.ms)}</td><td>${x.kasni}</td><td>${x.rani}</td><td>${x.nepotpuno}</td></tr>`).join('');
+  const w=window.open('','_blank');if(!w){say('Preglednik je blokirao otvaranje PDF-a. Dopustite skočne prozore za ovu stranicu.');return}
+  w.document.write(`<!doctype html><html lang="hr"><head><meta charset="utf-8"><title>Mjesečni izvještaj - ${htmlEsc(d.skola.naziv||'škola')} - ${htmlEsc(d.mjesec)}</title><style>@page{size:A4 landscape;margin:14mm}body{font-family:Arial,sans-serif;color:#172033;font-size:11px}h1{font-size:20px;margin:0 0 6px}h2{font-size:14px;margin:0 0 18px;font-weight:normal}.meta{line-height:1.55;margin-bottom:16px}.summary{font-weight:bold;margin:14px 0}table{width:100%;border-collapse:collapse}th,td{border:1px solid #cfd5dd;padding:7px;text-align:left}th{background:#f1f3f5}.foot{margin-top:20px;font-size:9px;color:#667085}@media print{button{display:none}}</style></head><body><h1>Mjesečni izvještaj evidencije prakse</h1><h2>${htmlEsc(mjesecNaziv(d.mjesec))}</h2><div class="meta"><b>Škola:</b> ${htmlEsc(d.skola.naziv||'')}<br><b>Razrednik/ci:</b> ${raz}<br><b>E-mail primatelja:</b> ${htmlEsc(d.skola.email_izvjestaj||d.skola.email||'nije upisan')}</div><table><thead><tr><th>Učenik</th><th>Razred</th><th>Dana prakse</th><th>Ukupno vrijeme</th><th>Kašnjenja</th><th>Raniji odlasci</th><th>Nepotpuna evidencija</th></tr></thead><tbody>${rows}</tbody></table><div class="summary">Učenika: ${d.rows.length} · evidentiranih dana: ${d.days} · ukupno vrijeme: ${trajanje(d.total)}</div><div class="foot">Izvještaj izrađen ${datum}. Evidencija prakse – Zubak Grupa.</div><script>window.onload=()=>setTimeout(()=>window.print(),300)<\/script></body></html>`);
+  w.document.close();
 }
 
 function htmlEsc(v){return String(v??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]))}
