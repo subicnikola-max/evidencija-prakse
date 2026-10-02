@@ -1,6 +1,6 @@
 <!doctype html>
 <html lang="hr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Evidencija prakse V8.9</title>
+<title>Evidencija prakse V8.9.1</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
 body{font-family:Arial,sans-serif;background:#f4f6f8;margin:0;color:#172033}.wrap{max-width:520px;margin:35px auto;padding:18px}
@@ -145,15 +145,24 @@ async function prijaviIzostanak(){
 }
 async function loadMojiIzostanci(){
  const {data:{user}}=await sb.auth.getUser();if(!user)return;
- const r=await sb.from("Izostanci").select("*").eq("user_id",user.id).order("datum_od",{ascending:false});
+ const [r,e]=await Promise.all([
+   sb.from("Izostanci").select("*").eq("user_id",user.id).order("datum_od",{ascending:false}),
+   sb.from("Evidencija").select("created_at,dogadaj").eq("user_id",user.id).eq("dogadaj","DOLAZAK")
+ ]);
  if(r.error){$("mojiIzostanci").innerHTML=`<p class="muted">Greška: ${htmlEsc(r.error.message)}</p>`;return}
- const rows=r.data||[];let days=[];for(const x of rows){for(const d of dateRange(x.datum_od,x.datum_do))days.push({...x,dan:d})}
- $("mojiIzostanci").innerHTML=days.length?'<h4>Moji prijavljeni izostanci</h4><div style="overflow:auto"><table style="width:100%;border-collapse:collapse"><tr><th>Datum</th><th>Izostanak / razlog</th><th>Status</th></tr>'+days.map(x=>`<tr><td>${htmlEsc(x.dan)}</td><td style="white-space:normal">IZOSTANAK – ${htmlEsc(x.razlog)}</td><td style="white-space:normal">${statusIzostanka(x.status)}</td></tr>`).join("")+'</table></div>':'<p class="muted">Nema prijavljenih izostanaka.</p>';
+ const dolasci=new Set((e.data||[]).map(x=>hrDate(x.created_at)));
+ const rows=r.data||[];let days=[];for(const x of rows){for(const d of dateRange(x.datum_od,x.datum_do))days.push({...x,dan:d,dosao:dolasci.has(d)})}
+ $("mojiIzostanci").innerHTML=days.length?'<h4>Moje prijave</h4><div style="overflow:auto"><table style="width:100%;border-collapse:collapse"><tr><th>Datum</th><th>Prijava / razlog</th><th>Status</th></tr>'+days.map(x=>`<tr><td>${htmlEsc(x.dan)}</td><td style="white-space:normal">${x.dosao?"NAJAVA – ":"IZOSTANAK – "}${htmlEsc(x.razlog)}</td><td style="white-space:normal">${x.dosao?"DOŠAO NA PRAKSU":statusIzostanka(x.status)}</td></tr>`).join("")+'</table></div>':'<p class="muted">Nema prijavljenih izostanaka.</p>';
 }
 async function loadAdminIzostanci(){
- const r=await sb.from("Izostanci").select("*").order("datum_od",{ascending:false});
+ const [r,e]=await Promise.all([
+   sb.from("Izostanci").select("*").order("datum_od",{ascending:false}),
+   sb.from("Evidencija").select("user_id,created_at,dogadaj").eq("dogadaj","DOLAZAK")
+ ]);
  if(r.error){$("adminIzostanciList").innerHTML=`<div class="info">Greška: ${htmlEsc(r.error.message)}</div>`;return}
- const rows=r.data||[];$("adminIzostanciList").innerHTML=rows.length?rows.map(x=>`<div class="info"><b>${htmlEsc(x.ucenik)}</b><br>${htmlEsc(x.datum_od)} – ${htmlEsc(x.datum_do)}<br><b>IZOSTANAK – ${htmlEsc(x.razlog)}</b><br><span class="muted">${statusIzostanka(x.status)} · prijavljeno ${new Intl.DateTimeFormat("hr-HR",{timeZone:"Europe/Zagreb",dateStyle:"short",timeStyle:"short"}).format(new Date(x.created_at))}</span></div>`).join(""):'<div class="info">Nema prijavljenih izostanaka.</div>';
+ const dolasci=new Set((e.data||[]).map(x=>`${x.user_id}|${hrDate(x.created_at)}`));
+ const rows=r.data||[];let days=[];for(const x of rows){for(const d of dateRange(x.datum_od,x.datum_do))days.push({...x,dan:d,dosao:dolasci.has(`${x.user_id}|${d}`)})}
+ $("adminIzostanciList").innerHTML=days.length?days.map(x=>`<div class="info"><b>${htmlEsc(x.ucenik)}</b><br>${htmlEsc(x.dan)}<br><b>${x.dosao?"NAJAVA – ":"IZOSTANAK – "}${htmlEsc(x.razlog)}</b><br><span class="muted">${x.dosao?"DOŠAO NA PRAKSU – ne računa se kao cjelodnevni izostanak":statusIzostanka(x.status)} · prijavljeno ${new Intl.DateTimeFormat("hr-HR",{timeZone:"Europe/Zagreb",dateStyle:"short",timeStyle:"short"}).format(new Date(x.created_at))}</span></div>`).join(""):'<div class="info">Nema prijavljenih izostanaka.</div>';
 }
 
 async function adminPregled(){
