@@ -1,6 +1,6 @@
 <!doctype html>
 <html lang="hr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Evidencija prakse V9.3</title>
+<title>Evidencija prakse V9.5</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <style>
@@ -39,6 +39,15 @@ table th,table td{padding:6px 5px;border-bottom:1px solid #e5e7eb;text-align:lef
 <label style="display:flex;align-items:center;gap:8px"><input id="samoBezOdjave" type="checkbox" style="width:auto"> Samo evidencije s nedostajućom odjavom</label>
 <button id="pregledBtn">Prikaži evidenciju</button>
 <button id="csvBtn">Izvoz CSV za Excel</button>
+<div id="naknadnaOdjavaPanel" class="info hidden" style="border:2px solid #d97706">
+<h3>Naknadna odjava – administrator</h3>
+<p id="naknadnaOpis" class="muted"></p>
+<label>Potvrđeno vrijeme odlaska</label><input id="naknadnaVrijeme" type="time" step="60">
+<label>Razlog ispravka (najmanje 10 znakova)</label><textarea id="naknadnaRazlog" rows="3" style="box-sizing:border-box;width:100%;padding:12px;border:1px solid #ccc;border-radius:10px" placeholder="Npr. Voditelj radionice potvrdio odlazak u 15:00"></textarea>
+<button id="naknadnaSpremi" type="button" onclick="spremiNaknadnuOdjavu()">Potvrdi naknadnu odjavu</button>
+<button type="button" style="background:#6b7280" onclick="zatvoriNaknadnuOdjavu()">Odustani</button>
+<p class="muted">Vrijeme odlaska mora biti stvarno potvrđeno. Sustav bilježi administratora i razlog ispravka.</p>
+</div>
 <div id="adminSummary" class="info hidden"></div>
 <div style="overflow:auto"><table id="adminTable" style="width:100%;border-collapse:collapse;font-size:14px"></table></div>
 </div>
@@ -53,7 +62,7 @@ table th,table td{padding:6px 5px;border-bottom:1px solid #e5e7eb;text-align:lef
 <div id="tab-roditelji" class="hidden"><h3>Roditelji</h3><div class="info"><b>Dodaj roditelja / skrbnika</b><input id="rod-ime" placeholder="Ime i prezime"><input id="rod-email" type="email" placeholder="E-mail"><input id="rod-mob" placeholder="Mobitel"><button onclick="addRoditelj()">Dodaj roditelja</button></div><button onclick="loadSimple('Roditelji','roditeljiList')">Osvježi roditelje</button><div id="roditeljiList"></div></div>
 </div>
 <button id="logout">Odjava</button></div>
-<div id="msg"></div><p class="muted">V9.4 · evidencija prakse · prijava izostanka · potvrda odlaska · administracija</p>
+<div id="msg"></div><p class="muted">V9.5 · evidencija prakse · prijava izostanka · potvrda odlaska · administracija</p>
 </div></div><script>
 const SUPABASE_URL="https://mfpysfuzcoampyrzyern.supabase.co"; const SUPABASE_KEY="sb_publishable_qcv2gskJS57eOspClvEVKA_DLMSrFrA"; const sb=window.supabase.createClient(SUPABASE_URL,SUPABASE_KEY);
 const $=x=>document.getElementById(x), say=x=>$("msg").textContent=x;
@@ -217,12 +226,37 @@ async function adminPregled(){
  if($("samoBezOdjave").checked)window.adminRows=window.adminRows.filter(x=>x.status==="NEDOSTAJE ODJAVA");
  const t=$("adminTable");
  t.innerHTML="<tr><th>Učenik</th><th>Datum</th><th>Dolazak</th><th>Odlazak</th><th>Vrijeme</th><th>Status</th><th>Ispravak</th></tr>"+
- window.adminRows.map(x=>`<tr><td>${x.ucenik}</td><td>${x.datum}</td><td>${x.dolazakVrijeme||"—"}</td><td>${x.odlazakVrijeme||"—"}</td><td>${x.trajanje||(x.status==="NEDOSTAJE ODJAVA"?"—":"u tijeku")}</td><td style="white-space:normal;min-width:110px">${x.status}</td><td>${x.odlazakId?`<button type="button" class="red" style="padding:8px;font-size:12px;min-width:115px" onclick="ponistiOdlazak(${x.odlazakId},'${String(x.ucenik||'').replace(/'/g,"\\'")}','${x.datum}')">Poništi odlazak</button>`:'—'}</td></tr>`).join("");
+ window.adminRows.map(x=>`<tr><td>${htmlEsc(x.ucenik)}</td><td>${x.datum}</td><td>${x.dolazakVrijeme||"—"}</td><td>${x.odlazakVrijeme||"—"}</td><td>${x.trajanje||(x.status==="NEDOSTAJE ODJAVA"?"—":"u tijeku")}</td><td style="white-space:normal;min-width:110px">${htmlEsc(x.status)}</td><td>${x.odlazakId?`<button type="button" class="red" style="padding:8px;font-size:12px;min-width:115px" onclick="ponistiOdlazak(${x.odlazakId},'${String(x.ucenik||'').replace(/'/g,"\\'")}','${x.datum}')">Poništi odlazak</button>`:(x.dolazak&&!x.odlazak&&x.datum<dayBounds().date?`<button type="button" style="padding:8px;font-size:12px;min-width:115px;background:#d97706" onclick="otvoriNaknadnuOdjavu('${htmlEsc(x.user_id)}','${htmlEsc(x.datum)}')">Naknadna odjava</button>`:'—')}</td></tr>`).join("");
  const total=window.adminRows.reduce((a,x)=>a+(x.ms||0),0);
  $("adminSummary").classList.remove("hidden");
  $("adminSummary").textContent=`Ukupno evidentirano: ${trajanje(total)} · broj dana: ${window.adminRows.length}`;
  say(`Prikazano dana evidencije: ${window.adminRows.length}`);
 }
+let naknadnaOdjavaTarget=null;
+function otvoriNaknadnuOdjavu(userId,datum){
+ const x=(window.adminRows||[]).find(r=>r.user_id===userId&&r.datum===datum);
+ if(!x||!x.dolazak||x.odlazak||datum>=dayBounds().date){say("Naknadna odjava dostupna je samo za prethodne dane bez odlaska.");return}
+ naknadnaOdjavaTarget={userId,datum,ime:x.ucenik,dolazak:x.dolazak};
+ $("naknadnaOpis").textContent=`Učenik: ${x.ucenik} · datum: ${datum} · dolazak: ${fmt(x.dolazak)}. Unesite isključivo potvrđeno vrijeme odlaska.`;
+ $("naknadnaVrijeme").value="";$("naknadnaRazlog").value="";
+ $("naknadnaOdjavaPanel").classList.remove("hidden");
+ $("naknadnaOdjavaPanel").scrollIntoView({behavior:"smooth",block:"center"});
+}
+function zatvoriNaknadnuOdjavu(){naknadnaOdjavaTarget=null;$("naknadnaOdjavaPanel").classList.add("hidden")}
+async function spremiNaknadnuOdjavu(){
+ const t=naknadnaOdjavaTarget;if(!t){say("Najprije odaberite nezavršenu evidenciju.");return}
+ const vrijeme=$("naknadnaVrijeme").value, razlog=$("naknadnaRazlog").value.trim();
+ if(!/^([01]\d|2[0-3]):[0-5]\d$/.test(vrijeme)){say("Unesite ispravno vrijeme odlaska.");return}
+ if(razlog.length<10){say("Razlog ispravka mora imati najmanje 10 znakova.");return}
+ if(!confirm(`Potvrđujete naknadni odlazak za ${t.ime} na datum ${t.datum} u ${vrijeme}?\n\nRazlog: ${razlog}\n\nOva radnja bit će trajno zabilježena.`))return;
+ const btn=$("naknadnaSpremi");btn.disabled=true;say("Spremam potvrđenu naknadnu odjavu…");
+ try{
+  const r=await sb.rpc("ep_naknadna_odjava",{p_user_id:t.userId,p_datum:t.datum,p_vrijeme:vrijeme,p_razlog:razlog});
+  if(r.error){say("Naknadna odjava nije spremljena: "+r.error.message);return}
+  zatvoriNaknadnuOdjavu();await adminPregled();say(`Naknadna odjava za ${t.ime} (${t.datum}, ${vrijeme}) uspješno je spremljena. Razlog je zapisan u povijest ispravaka.`);
+ }catch(e){say("Greška: "+(e?.message||e))}finally{btn.disabled=false}
+}
+
 async function ponistiOdlazak(id,ucenik,datum){
  const ok=confirm(`Poništiti evidentirani ODLAZAK za ${ucenik} (${datum})?\n\nUčenik će nakon toga moći ponovno evidentirati odlazak. Ispravak će ostati zabilježen u dnevniku.`);
  if(!ok)return;
