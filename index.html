@@ -36,6 +36,7 @@ table th,table td{padding:6px 5px;border-bottom:1px solid #e5e7eb;text-align:lef
 <input id="odDatum" type="date" style="flex:1"><input id="doDatum" type="date" style="flex:1">
 </div>
 <button id="mjesecBtn">Ovaj mjesec</button>
+<label style="display:flex;align-items:center;gap:8px"><input id="samoBezOdjave" type="checkbox" style="width:auto"> Samo evidencije s nedostajućom odjavom</label>
 <button id="pregledBtn">Prikaži evidenciju</button>
 <button id="csvBtn">Izvoz CSV za Excel</button>
 <div id="adminSummary" class="info hidden"></div>
@@ -52,7 +53,7 @@ table th,table td{padding:6px 5px;border-bottom:1px solid #e5e7eb;text-align:lef
 <div id="tab-roditelji" class="hidden"><h3>Roditelji</h3><div class="info"><b>Dodaj roditelja / skrbnika</b><input id="rod-ime" placeholder="Ime i prezime"><input id="rod-email" type="email" placeholder="E-mail"><input id="rod-mob" placeholder="Mobitel"><button onclick="addRoditelj()">Dodaj roditelja</button></div><button onclick="loadSimple('Roditelji','roditeljiList')">Osvježi roditelje</button><div id="roditeljiList"></div></div>
 </div>
 <button id="logout">Odjava</button></div>
-<div id="msg"></div><p class="muted">V9.2 · evidencija prakse · prijava izostanka · potvrda odlaska · administracija</p>
+<div id="msg"></div><p class="muted">V9.4 · evidencija prakse · prijava izostanka · potvrda odlaska · administracija</p>
 </div></div><script>
 const SUPABASE_URL="https://mfpysfuzcoampyrzyern.supabase.co"; const SUPABASE_KEY="sb_publishable_qcv2gskJS57eOspClvEVKA_DLMSrFrA"; const sb=window.supabase.createClient(SUPABASE_URL,SUPABASE_KEY);
 const $=x=>document.getElementById(x), say=x=>$("msg").textContent=x;
@@ -94,7 +95,8 @@ async function load(){
  const arr=events.find(e=>e.dogadaj==="DOLAZAK"), dep=events.find(e=>e.dogadaj==="ODLAZAK");
  $("dolazak").disabled=!!arr; $("odlazak").disabled=!arr||!!dep;
  $("status").textContent=dep?`Danas završeno. Dolazak ${fmt(arr.created_at)}, odlazak ${fmt(dep.created_at)}.`:arr?`Dolazak evidentiran u ${fmt(arr.created_at)}. Odlazak još nije evidentiran.`:"Danas još nema evidentiranog dolaska.";
- say("");
+ const prethodniBezOdjave=(q.data||[]).filter(e=>e.dogadaj==="DOLAZAK"&&hrDate(e.created_at)<today&&!((q.data||[]).some(o=>o.dogadaj==="ODLAZAK"&&o.user_id===e.user_id&&hrDate(o.created_at)===hrDate(e.created_at))));
+ say(prethodniBezOdjave.length?`UPOZORENJE: Za ${prethodniBezOdjave.length} prethodnih dana nedostaje odjava. Otvorite Moja evidencija i obratite se voditelju radionice radi potvrde odlaska.`:"");
  if(!isAdmin) { await loadKartica(); }
 }
 function gps(){return new Promise((res,rej)=>navigator.geolocation.getCurrentPosition(res,rej,{enableHighAccuracy:true,timeout:20000,maximumAge:0}))}
@@ -128,7 +130,12 @@ function hrMinute(ts){
  const h=Number(parts.find(x=>x.type==="hour")?.value||0),m=Number(parts.find(x=>x.type==="minute")?.value||0); return h*60+m;
 }
 function timeToMin(v,def){if(!v)return def;const a=String(v).split(":");return Number(a[0])*60+Number(a[1]||0)}
+function statusOdjave(x){
+ if(x.dolazak&&!x.odlazak)return x.datum<dayBounds().date?"NEDOSTAJE ODJAVA":"U TIJEKU";
+ return null;
+}
 function radniStatus(x,profil){
+ const problem=statusOdjave(x); if(problem)return problem;
  const start=timeToMin(profil?.pocetak_prakse,480), end=timeToMin(profil?.kraj_prakse,960), tol=Number(profil?.tolerancija_min??30);
  const st=[];
  if(x.dolazak){const late=hrMinute(x.dolazak)-(start+tol);st.push(late>0?`KASNI ${late} min`:"DOLAZAK UREDAN")}
@@ -144,7 +151,7 @@ async function mojaEvidencija(opseg){
  if(opseg==="mjesec")rows=rows.filter(e=>hrDate(e.created_at).slice(0,7)===ym);
  const by={}; for(const e of rows){const d=hrDate(e.created_at);by[d]??={datum:d,dolazak:null,odlazak:null};if(e.dogadaj==="DOLAZAK"&&!by[d].dolazak)by[d].dolazak=e.created_at;if(e.dogadaj==="ODLAZAK")by[d].odlazak=e.created_at}
  const a=Object.values(by).sort((a,b)=>b.datum.localeCompare(a.datum)).map(x=>{const ms=x.dolazak&&x.odlazak?new Date(x.odlazak)-new Date(x.dolazak):null;return {...x,ms,status:radniStatus(x,student)}});
- $("mojaTable").innerHTML='<tr><th>Datum</th><th>Dolazak</th><th>Odlazak</th><th>Vrijeme</th><th>Status</th></tr>'+a.map(x=>`<tr><td>${x.datum}</td><td>${x.dolazak?fmt(x.dolazak):"—"}</td><td>${x.odlazak?fmt(x.odlazak):"—"}</td><td>${x.ms!=null?trajanje(x.ms):"u tijeku"}</td><td style="white-space:normal;min-width:110px">${x.status}</td></tr>`).join("");
+ $("mojaTable").innerHTML='<tr><th>Datum</th><th>Dolazak</th><th>Odlazak</th><th>Vrijeme</th><th>Status</th></tr>'+a.map(x=>`<tr><td>${x.datum}</td><td>${x.dolazak?fmt(x.dolazak):"—"}</td><td>${x.odlazak?fmt(x.odlazak):"—"}</td><td>${x.ms!=null?trajanje(x.ms):(statusOdjave(x)==="NEDOSTAJE ODJAVA"?"—":"u tijeku")}</td><td style="white-space:normal;min-width:110px">${x.status}</td></tr>`).join("");
  const total=a.reduce((z,x)=>z+(x.ms||0),0);$("mojaSummary").classList.remove("hidden");$("mojaSummary").textContent=`${opseg==="danas"?"Danas":opseg==="mjesec"?"Ovaj mjesec":"Ukupno"}: ${a.length} dana · ${trajanje(total)}`;
 }
 function dateRange(od,do_){
@@ -207,9 +214,10 @@ async function adminPregled(){
    const ms=x.dolazak&&x.odlazak?new Date(x.odlazak)-new Date(x.dolazak):null;
    return {...x,dolazakVrijeme:x.dolazak?fmt(x.dolazak):"",odlazakVrijeme:x.odlazak?fmt(x.odlazak):"",ms,trajanje:trajanje(ms),status:radniStatus(x,prof[x.user_id])};
  });
+ if($("samoBezOdjave").checked)window.adminRows=window.adminRows.filter(x=>x.status==="NEDOSTAJE ODJAVA");
  const t=$("adminTable");
  t.innerHTML="<tr><th>Učenik</th><th>Datum</th><th>Dolazak</th><th>Odlazak</th><th>Vrijeme</th><th>Status</th><th>Ispravak</th></tr>"+
- window.adminRows.map(x=>`<tr><td>${x.ucenik}</td><td>${x.datum}</td><td>${x.dolazakVrijeme||"—"}</td><td>${x.odlazakVrijeme||"—"}</td><td>${x.trajanje||"u tijeku"}</td><td style="white-space:normal;min-width:110px">${x.status}</td><td>${x.odlazakId?`<button type="button" class="red" style="padding:8px;font-size:12px;min-width:115px" onclick="ponistiOdlazak(${x.odlazakId},'${String(x.ucenik||'').replace(/'/g,"\\'")}','${x.datum}')">Poništi odlazak</button>`:'—'}</td></tr>`).join("");
+ window.adminRows.map(x=>`<tr><td>${x.ucenik}</td><td>${x.datum}</td><td>${x.dolazakVrijeme||"—"}</td><td>${x.odlazakVrijeme||"—"}</td><td>${x.trajanje||(x.status==="NEDOSTAJE ODJAVA"?"—":"u tijeku")}</td><td style="white-space:normal;min-width:110px">${x.status}</td><td>${x.odlazakId?`<button type="button" class="red" style="padding:8px;font-size:12px;min-width:115px" onclick="ponistiOdlazak(${x.odlazakId},'${String(x.ucenik||'').replace(/'/g,"\\'")}','${x.datum}')">Poništi odlazak</button>`:'—'}</td></tr>`).join("");
  const total=window.adminRows.reduce((a,x)=>a+(x.ms||0),0);
  $("adminSummary").classList.remove("hidden");
  $("adminSummary").textContent=`Ukupno evidentirano: ${trajanje(total)} · broj dana: ${window.adminRows.length}`;
@@ -232,7 +240,7 @@ function csvExport(){
  const a=window.adminRows||[];if(!a.length){say("Prvo kliknite Prikaži evidenciju.");return}
  const esc=v=>'"'+String(v??"").replaceAll('"','""')+'"';
  const lines=[["Učenik","Datum","Dolazak","Odlazak","Ukupno vrijeme","Lokacija"],
- ...a.map(x=>[x.ucenik,x.datum,x.dolazakVrijeme,x.odlazakVrijeme,x.trajanje||"U tijeku",x.lokacija])];
+ ...a.map(x=>[x.ucenik,x.datum,x.dolazakVrijeme,x.odlazakVrijeme,x.trajanje||(x.status==="NEDOSTAJE ODJAVA"?"Nedostaje odjava":"U tijeku"),x.lokacija])];
  const csv="\ufeff"+lines.map(r=>r.map(esc).join(";")).join("\r\n");
  const b=new Blob([csv],{type:"text/csv;charset=utf-8"}),u=window.URL.createObjectURL(b),ael=document.createElement("a");
  ael.href=u;ael.download=`evidencija_prakse_${$("odDatum").value||"sve"}_${$("doDatum").value||"sve"}.csv`;ael.click();window.URL.revokeObjectURL(u);
