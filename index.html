@@ -1,6 +1,6 @@
 <!doctype html>
 <html lang="hr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Evidencija prakse V9.6</title>
+<title>Evidencija prakse V9.7</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <style>
@@ -17,7 +17,7 @@ table th,table td{padding:6px 5px;border-bottom:1px solid #e5e7eb;text-align:lef
 <div id="studentActions"><button id="dolazak">Evidentiraj DOLAZAK</button><button id="odlazak" class="red">Evidentiraj ODLAZAK</button><button id="prijaviIzostanakBtn" type="button" style="background:#d97706">Prijavi IZOSTANAK</button><div id="izostanakForm" class="info hidden"><h3>Prijavi izostanak</h3><p class="muted">Izostanak možete prijaviti s bilo koje lokacije. GPS se ne provjerava.</p><label>Od</label><input id="izostanakOd" type="date"><label>Do</label><input id="izostanakDo" type="date"><label>Razlog</label><textarea id="izostanakRazlog" rows="3" placeholder="Npr. bolest" style="box-sizing:border-box;width:100%;padding:14px;margin:7px 0;border-radius:10px;border:1px solid #ccc;font-size:16px"></textarea><button id="posaljiIzostanak" type="button">Pošalji prijavu</button><div id="mojiIzostanci"></div></div><button id="karticaBtn" type="button">Moja kartica učenika</button><div id="karticaPanel" class="info hidden"><h3>Kartica učenika</h3><p class="muted">Unesite ili provjerite svoje podatke. Škola i razrednik podliježu potvrdi administratora.</p><label>Škola</label><select id="kartSkola"></select><label>Razred</label><input id="kartRazred" placeholder="npr. 2. razred"><label>Ime i prezime razrednika</label><input id="kartRazrednik" placeholder="Ime i prezime"><label>Moj mobitel</label><input id="kartMob" type="tel" placeholder="09..."><label>Roditelj/skrbnik – ime i prezime</label><input id="kartRod" placeholder="Ime i prezime"><label>Mobitel roditelja/skrbnika</label><input id="kartRodMob" type="tel"><label>E-mail roditelja/skrbnika</label><input id="kartRodEmail" type="email"><button id="kartSpremi" type="button">Spremi karticu</button><p id="kartStatus" class="muted"></p></div><button id="mojaEvidencijaBtn" type="button">Moja evidencija</button><div id="mojaEvidencija" class="hidden"><h3>Moja evidencija</h3><div style="display:flex;gap:6px;flex-wrap:wrap"><button id="mojDanas" type="button" style="flex:1">Danas</button><button id="mojMjesec" type="button" style="flex:1">Ovaj mjesec</button><button id="mojUkupno" type="button" style="flex:1">Ukupno</button></div><div id="mojaSummary" class="info hidden"></div><div style="overflow:auto"><table id="mojaTable" style="width:100%;border-collapse:collapse;font-size:13px"></table></div></div></div>
 <div id="coordBox" class="hidden"><hr><h2>Pregled evidencije – koordinatorice i voditelji</h2>
 <div class="info" id="coordDashboard" style="border:1px solid #dbe3ef">
-<h3 style="margin-top:0">Nadzorna ploča V9.6</h3>
+<h3 style="margin-top:0">Nadzorna ploča V9.7</h3>
 <label for="dashDatum">Datum pregleda</label><input id="dashDatum" type="date">
 <div id="dashCards" style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px"></div>
 <h4>Pregled po lokacijama</h4><div style="overflow:auto"><table id="dashLocations" style="width:100%;border-collapse:collapse;font-size:13px"></table></div>
@@ -69,7 +69,7 @@ table th,table td{padding:6px 5px;border-bottom:1px solid #e5e7eb;text-align:lef
 <div id="tab-roditelji" class="hidden"><h3>Roditelji</h3><div class="info"><b>Dodaj roditelja / skrbnika</b><input id="rod-ime" placeholder="Ime i prezime"><input id="rod-email" type="email" placeholder="E-mail"><input id="rod-mob" placeholder="Mobitel"><button onclick="addRoditelj()">Dodaj roditelja</button></div><button onclick="loadSimple('Roditelji','roditeljiList')">Osvježi roditelje</button><div id="roditeljiList"></div></div>
 </div>
 <button id="logout">Odjava</button></div>
-<div id="msg"></div><p class="muted">V9.6 · evidencija prakse · prijava izostanka · potvrda odlaska · administracija</p>
+<div id="msg"></div><p class="muted">V9.7 · evidencija prakse · prijava izostanka · potvrda odlaska · administracija</p>
 </div></div><script>
 const SUPABASE_URL="https://mfpysfuzcoampyrzyern.supabase.co"; const SUPABASE_KEY="sb_publishable_qcv2gskJS57eOspClvEVKA_DLMSrFrA"; const sb=window.supabase.createClient(SUPABASE_URL,SUPABASE_KEY);
 const $=x=>document.getElementById(x), say=x=>$("msg").textContent=x;
@@ -212,8 +212,14 @@ async function adminPregled(){
  say("Učitavam evidenciju…");
  const r=await sb.from("Evidencija").select("*").order("created_at",{ascending:true});
  if(r.error){say("Greška administratorskog pregleda: "+r.error.message);return}
- const ur=await sb.from("Učenici").select("user_id,pocetak_prakse,kraj_prakse,tolerancija_min");
- const prof={};if(!ur.error)(ur.data||[]).forEach(u=>prof[u.user_id]=u);
+ const [ur,sr]=await Promise.all([
+   sb.from("Učenici").select("user_id,razred,skola_id,lokacija,pocetak_prakse,kraj_prakse,tolerancija_min"),
+   sb.from("Skole").select("id,naziv")
+ ]);
+ if(ur.error){say("Greška podataka učenika: "+ur.error.message);return}
+ if(sr.error){say("Greška podataka škola: "+sr.error.message);return}
+ const skole=new Map((sr.data||[]).map(x=>[String(x.id),x.naziv]));
+ const prof={};(ur.data||[]).forEach(u=>prof[u.user_id]=u);
  const od=$("odDatum").value, dd=$("doDatum").value;
  const rows=(r.data||[]).filter(e=>{
    const d=hrDate(e.created_at);
@@ -228,12 +234,13 @@ async function adminPregled(){
  }
  window.adminRows=Object.values(by).map(x=>{
    const ms=x.dolazak&&x.odlazak?new Date(x.odlazak)-new Date(x.dolazak):null;
-   return {...x,dolazakVrijeme:x.dolazak?fmt(x.dolazak):"",odlazakVrijeme:x.odlazak?fmt(x.odlazak):"",ms,trajanje:trajanje(ms),status:radniStatus(x,prof[x.user_id])};
+   const u=prof[x.user_id]||{};
+   return {...x,skola:u.skola_id!=null?(skole.get(String(u.skola_id))||"—"):"—",razred:u.razred||"—",lokacija:x.lokacija||u.lokacija||"—",dolazakVrijeme:x.dolazak?fmt(x.dolazak):"",odlazakVrijeme:x.odlazak?fmt(x.odlazak):"",ms,trajanje:trajanje(ms),status:radniStatus(x,u)};
  });
  if($("samoBezOdjave").checked)window.adminRows=window.adminRows.filter(x=>x.status==="NEDOSTAJE ODJAVA");
  const t=$("adminTable");
- t.innerHTML="<tr><th>Učenik</th><th>Datum</th><th>Dolazak</th><th>Odlazak</th><th>Vrijeme</th><th>Status</th><th>Ispravak</th></tr>"+
- window.adminRows.map(x=>`<tr><td>${htmlEsc(x.ucenik)}</td><td>${x.datum}</td><td>${x.dolazakVrijeme||"—"}</td><td>${x.odlazakVrijeme||"—"}</td><td>${x.trajanje||(x.status==="NEDOSTAJE ODJAVA"?"—":"u tijeku")}</td><td style="white-space:normal;min-width:110px">${htmlEsc(x.status)}</td><td>${x.odlazakId?`<button type="button" class="red" style="padding:8px;font-size:12px;min-width:115px" onclick="ponistiOdlazak(${x.odlazakId},'${String(x.ucenik||'').replace(/'/g,"\\'")}','${x.datum}')">Poništi odlazak</button>`:(x.dolazak&&!x.odlazak&&x.datum<dayBounds().date?`<button type="button" style="padding:8px;font-size:12px;min-width:115px;background:#d97706" onclick="otvoriNaknadnuOdjavu('${htmlEsc(x.user_id)}','${htmlEsc(x.datum)}')">Naknadna odjava</button>`:'—')}</td></tr>`).join("");
+ t.innerHTML="<tr><th>Učenik</th><th>Škola</th><th>Razred</th><th>Lokacija</th><th>Datum</th><th>Dolazak</th><th>Odlazak</th><th>Vrijeme</th><th>Status</th><th>Ispravak</th></tr>"+
+ window.adminRows.map(x=>`<tr><td>${htmlEsc(x.ucenik)}</td><td>${htmlEsc(x.skola)}</td><td>${htmlEsc(x.razred)}</td><td>${htmlEsc(x.lokacija)}</td><td>${x.datum}</td><td>${x.dolazakVrijeme||"—"}</td><td>${x.odlazakVrijeme||"—"}</td><td>${x.trajanje||(x.status==="NEDOSTAJE ODJAVA"?"—":"u tijeku")}</td><td style="white-space:normal;min-width:110px">${htmlEsc(x.status)}</td><td>${x.odlazakId?`<button type="button" class="red" style="padding:8px;font-size:12px;min-width:115px" onclick="ponistiOdlazak(${x.odlazakId},'${String(x.ucenik||'').replace(/'/g,"\\'")}','${x.datum}')">Poništi odlazak</button>`:(x.dolazak&&!x.odlazak&&x.datum<dayBounds().date?`<button type="button" style="padding:8px;font-size:12px;min-width:115px;background:#d97706" onclick="otvoriNaknadnuOdjavu('${htmlEsc(x.user_id)}','${htmlEsc(x.datum)}')">Naknadna odjava</button>`:'—')}</td></tr>`).join("");
  const total=window.adminRows.reduce((a,x)=>a+(x.ms||0),0);
  $("adminSummary").classList.remove("hidden");
  $("adminSummary").textContent=`Ukupno evidentirano: ${trajanje(total)} · broj dana: ${window.adminRows.length}`;
@@ -280,8 +287,8 @@ async function ponistiOdlazak(id,ucenik,datum){
 function csvExport(){
  const a=window.adminRows||[];if(!a.length){say("Prvo kliknite Prikaži evidenciju.");return}
  const esc=v=>'"'+String(v??"").replaceAll('"','""')+'"';
- const lines=[["Učenik","Datum","Dolazak","Odlazak","Ukupno vrijeme","Lokacija"],
- ...a.map(x=>[x.ucenik,x.datum,x.dolazakVrijeme,x.odlazakVrijeme,x.trajanje||(x.status==="NEDOSTAJE ODJAVA"?"Nedostaje odjava":"U tijeku"),x.lokacija])];
+ const lines=[["Učenik","Škola","Razred","Lokacija","Datum","Dolazak","Odlazak","Ukupno vrijeme","Status"],
+ ...a.map(x=>[x.ucenik,x.skola,x.razred,x.lokacija,x.datum,x.dolazakVrijeme,x.odlazakVrijeme,x.trajanje||(x.status==="NEDOSTAJE ODJAVA"?"Nedostaje odjava":"U tijeku"),x.status])];
  const csv="\ufeff"+lines.map(r=>r.map(esc).join(";")).join("\r\n");
  const b=new Blob([csv],{type:"text/csv;charset=utf-8"}),u=window.URL.createObjectURL(b),ael=document.createElement("a");
  ael.href=u;ael.download=`evidencija_prakse_${$("odDatum").value||"sve"}_${$("doDatum").value||"sve"}.csv`;ael.click();window.URL.revokeObjectURL(u);
@@ -556,7 +563,7 @@ function coordDashboardRender(){
 function coordRender(){
  coordDashboardRender();
  const a=coordFiltered();$("coordSummary").textContent=`Prikazano zapisa: ${a.length}. Evidencija obuhvaća samo stvarno zabilježene događaje.`;
- $("coordTable").innerHTML='<tr><th>Učenik</th><th>Škola</th><th>Lokacija</th><th>Datum</th><th>Događaj</th><th>Vrijeme</th></tr>'+a.map(x=>'<tr><td>'+htmlEsc(x.ucenik)+'</td><td>'+htmlEsc(x.skola||'—')+'</td><td>'+htmlEsc(x.lokacija||'—')+'</td><td>'+htmlEsc(x.datum)+'</td><td>'+htmlEsc(x.dogadaj)+'</td><td>'+htmlEsc(x.vrijeme||'—')+'</td></tr>').join('');
+ $("coordTable").innerHTML='<tr><th>Učenik</th><th>Škola</th><th>Razred</th><th>Lokacija</th><th>Datum</th><th>Događaj</th><th>Vrijeme</th></tr>'+a.map(x=>'<tr><td>'+htmlEsc(x.ucenik)+'</td><td>'+htmlEsc(x.skola||'—')+'</td><td>'+htmlEsc(x.razred||'—')+'</td><td>'+htmlEsc(x.lokacija||'—')+'</td><td>'+htmlEsc(x.datum)+'</td><td>'+htmlEsc(x.dogadaj)+'</td><td>'+htmlEsc(x.vrijeme||'—')+'</td></tr>').join('');
 }
 async function coordRefresh(){say("Osvježavam evidenciju…");const r=await sb.rpc("ep_pregled_koordinatora");if(r.error){say("Pregled nije dostupan: "+r.error.message);return}coordRows=r.data||[];coordFilters();coordRender();say("Pregled je osvježen.")}
 function coordExport(){
@@ -570,12 +577,12 @@ function coordExport(){
   return /^[\s]*[=+@\-]/.test(str)?"'"+str:str;
  };
  const data=rows.map(x=>({
-  "Učenik":safe(x.ucenik),"Škola":safe(x.skola),"Lokacija":safe(x.lokacija),
+  "Učenik":safe(x.ucenik),"Škola":safe(x.skola),"Razred":safe(x.razred||"—"),"Lokacija":safe(x.lokacija),
   "Datum":String(x.datum??""),"Događaj":safe(x.dogadaj),"Vrijeme":String(x.vrijeme??"")
  }));
  try{
-  const sheet=XLSX.utils.json_to_sheet(data,{header:["Učenik","Škola","Lokacija","Datum","Događaj","Vrijeme"]});
-  sheet["!cols"]=[{wch:28},{wch:34},{wch:22},{wch:15},{wch:18},{wch:14}];
+  const sheet=XLSX.utils.json_to_sheet(data,{header:["Učenik","Škola","Razred","Lokacija","Datum","Događaj","Vrijeme"]});
+  sheet["!cols"]=[{wch:28},{wch:34},{wch:12},{wch:22},{wch:15},{wch:18},{wch:14}];
   sheet["!autofilter"]={ref:sheet["!ref"]};
   const book=XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(book,sheet,"Evidencija prakse");
