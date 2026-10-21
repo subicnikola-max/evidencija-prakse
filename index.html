@@ -1,6 +1,6 @@
 <!doctype html>
 <html lang="hr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Evidencija prakse V9.5</title>
+<title>Evidencija prakse V9.6</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <style>
@@ -15,7 +15,14 @@ table th,table td{padding:6px 5px;border-bottom:1px solid #e5e7eb;text-align:lef
 <div id="login"><input id="email" type="email" placeholder="Email"><input id="password" type="password" placeholder="Lozinka"><button id="loginBtn">Prijava</button></div>
 <div id="app" class="hidden"><div class="info" id="info"></div><div class="info" id="status"></div>
 <div id="studentActions"><button id="dolazak">Evidentiraj DOLAZAK</button><button id="odlazak" class="red">Evidentiraj ODLAZAK</button><button id="prijaviIzostanakBtn" type="button" style="background:#d97706">Prijavi IZOSTANAK</button><div id="izostanakForm" class="info hidden"><h3>Prijavi izostanak</h3><p class="muted">Izostanak možete prijaviti s bilo koje lokacije. GPS se ne provjerava.</p><label>Od</label><input id="izostanakOd" type="date"><label>Do</label><input id="izostanakDo" type="date"><label>Razlog</label><textarea id="izostanakRazlog" rows="3" placeholder="Npr. bolest" style="box-sizing:border-box;width:100%;padding:14px;margin:7px 0;border-radius:10px;border:1px solid #ccc;font-size:16px"></textarea><button id="posaljiIzostanak" type="button">Pošalji prijavu</button><div id="mojiIzostanci"></div></div><button id="karticaBtn" type="button">Moja kartica učenika</button><div id="karticaPanel" class="info hidden"><h3>Kartica učenika</h3><p class="muted">Unesite ili provjerite svoje podatke. Škola i razrednik podliježu potvrdi administratora.</p><label>Škola</label><select id="kartSkola"></select><label>Razred</label><input id="kartRazred" placeholder="npr. 2. razred"><label>Ime i prezime razrednika</label><input id="kartRazrednik" placeholder="Ime i prezime"><label>Moj mobitel</label><input id="kartMob" type="tel" placeholder="09..."><label>Roditelj/skrbnik – ime i prezime</label><input id="kartRod" placeholder="Ime i prezime"><label>Mobitel roditelja/skrbnika</label><input id="kartRodMob" type="tel"><label>E-mail roditelja/skrbnika</label><input id="kartRodEmail" type="email"><button id="kartSpremi" type="button">Spremi karticu</button><p id="kartStatus" class="muted"></p></div><button id="mojaEvidencijaBtn" type="button">Moja evidencija</button><div id="mojaEvidencija" class="hidden"><h3>Moja evidencija</h3><div style="display:flex;gap:6px;flex-wrap:wrap"><button id="mojDanas" type="button" style="flex:1">Danas</button><button id="mojMjesec" type="button" style="flex:1">Ovaj mjesec</button><button id="mojUkupno" type="button" style="flex:1">Ukupno</button></div><div id="mojaSummary" class="info hidden"></div><div style="overflow:auto"><table id="mojaTable" style="width:100%;border-collapse:collapse;font-size:13px"></table></div></div></div>
-<div id="coordBox" class="hidden"><hr><h2>Pregled evidencije – koordinatorice i voditelji</h2><p class="muted">Pregled svih evidentiranih dolazaka i odlazaka. Samo čitanje; izostanak zapisa ne znači izostanak s prakse.</p><label>Od datuma</label><input id="coordOd" type="date"><label>Do datuma</label><input id="coordDo" type="date"><label>Učenik</label><input id="coordIme" placeholder="Pretraži ime učenika"><label>Lokacija</label><select id="coordLok"><option value="">Sve lokacije</option></select><label>Škola</label><select id="coordSkola"><option value="">Sve škole</option></select><button id="coordRefresh" type="button">Osvježi pregled</button><button id="coordCsv" type="button">Preuzmi Excel (.xlsx)</button><div id="coordSummary" class="info"></div><div style="overflow:auto"><table id="coordTable" style="width:100%;border-collapse:collapse;font-size:13px"></table></div></div>
+<div id="coordBox" class="hidden"><hr><h2>Pregled evidencije – koordinatorice i voditelji</h2>
+<div class="info" id="coordDashboard" style="border:1px solid #dbe3ef">
+<h3 style="margin-top:0">Nadzorna ploča V9.6</h3>
+<label for="dashDatum">Datum pregleda</label><input id="dashDatum" type="date">
+<div id="dashCards" style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px"></div>
+<h4>Pregled po lokacijama</h4><div style="overflow:auto"><table id="dashLocations" style="width:100%;border-collapse:collapse;font-size:13px"></table></div>
+<p class="muted">Broje se isključivo zabilježeni dolasci i odlasci. Bez rasporeda prakse nije moguće utvrditi izostanke. „Na praksi” znači evidentiran dolazak bez odlaska na odabrani dan.</p>
+</div><p class="muted">Pregled svih evidentiranih dolazaka i odlazaka. Samo čitanje; izostanak zapisa ne znači izostanak s prakse.</p><label>Od datuma</label><input id="coordOd" type="date"><label>Do datuma</label><input id="coordDo" type="date"><label>Učenik</label><input id="coordIme" placeholder="Pretraži ime učenika"><label>Lokacija</label><select id="coordLok"><option value="">Sve lokacije</option></select><label>Škola</label><select id="coordSkola"><option value="">Sve škole</option></select><button id="coordRefresh" type="button">Osvježi pregled</button><button id="coordCsv" type="button">Preuzmi Excel (.xlsx)</button><div id="coordSummary" class="info"></div><div style="overflow:auto"><table id="coordTable" style="width:100%;border-collapse:collapse;font-size:13px"></table></div></div>
 <div id="schoolBox" class="hidden"><hr><h2>Pregled škole</h2><p class="muted">Prikazuju se samo učenici povezani s vašom školom.</p><button id="schoolRefresh" type="button">Osvježi pregled</button><div id="schoolResults"></div></div><div id="adminBox" class="hidden">
 <hr><h2>Administracija</h2>
 <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px">
@@ -62,7 +69,7 @@ table th,table td{padding:6px 5px;border-bottom:1px solid #e5e7eb;text-align:lef
 <div id="tab-roditelji" class="hidden"><h3>Roditelji</h3><div class="info"><b>Dodaj roditelja / skrbnika</b><input id="rod-ime" placeholder="Ime i prezime"><input id="rod-email" type="email" placeholder="E-mail"><input id="rod-mob" placeholder="Mobitel"><button onclick="addRoditelj()">Dodaj roditelja</button></div><button onclick="loadSimple('Roditelji','roditeljiList')">Osvježi roditelje</button><div id="roditeljiList"></div></div>
 </div>
 <button id="logout">Odjava</button></div>
-<div id="msg"></div><p class="muted">V9.5 · evidencija prakse · prijava izostanka · potvrda odlaska · administracija</p>
+<div id="msg"></div><p class="muted">V9.6 · evidencija prakse · prijava izostanka · potvrda odlaska · administracija</p>
 </div></div><script>
 const SUPABASE_URL="https://mfpysfuzcoampyrzyern.supabase.co"; const SUPABASE_KEY="sb_publishable_qcv2gskJS57eOspClvEVKA_DLMSrFrA"; const sb=window.supabase.createClient(SUPABASE_URL,SUPABASE_KEY);
 const $=x=>document.getElementById(x), say=x=>$("msg").textContent=x;
@@ -521,7 +528,33 @@ function coordFiltered(){
  const od=$("coordOd").value,doo=$("coordDo").value,ime=$("coordIme").value.trim().toLocaleLowerCase("hr"),lok=$("coordLok").value,sk=$("coordSkola").value;
  return coordRows.filter(x=>(!od||x.datum>=od)&&(!doo||x.datum<=doo)&&(!ime||String(x.ucenik||"").toLocaleLowerCase("hr").includes(ime))&&(!lok||x.lokacija===lok)&&(!sk||x.skola===sk)).sort((a,b)=>String(b.datum).localeCompare(String(a.datum))||String(a.ucenik).localeCompare(String(b.ucenik),"hr"));
 }
+function coordDashboardRender(){
+ const datum=$("dashDatum").value||dayBounds().date;
+ const selected=coordRows.filter(x=>String(x.datum)===datum);
+ const by=new Map();
+ for(const x of selected){
+  const key=String(x.user_id||x.ucenik||"")+"|"+String(x.lokacija||"");
+  if(!by.has(key))by.set(key,{ucenik:x.ucenik,lokacija:x.lokacija||"Nije navedena",dolazak:false,odlazak:false});
+  const item=by.get(key);
+  if(x.dogadaj==="DOLAZAK")item.dolazak=true;
+  if(x.dogadaj==="ODLAZAK")item.odlazak=true;
+ }
+ const rows=[...by.values()];
+ const dosli=rows.filter(x=>x.dolazak),zavrsili=dosli.filter(x=>x.odlazak),otvoreni=dosli.filter(x=>!x.odlazak);
+ const prethodni=datum<dayBounds().date;
+ const cards=[
+  ["Prijavljeno dolazaka",dosli.length],
+  [prethodni?"Bez evidentirane odjave":"Na praksi (bez odjave)",otvoreni.length],
+  ["Završilo praksu",zavrsili.length],
+  ["Ukupno zapisa",selected.length]
+ ];
+ $("dashCards").innerHTML=cards.map(([name,n])=>`<div style="background:#fff;padding:13px;border-radius:10px;border:1px solid #e5e7eb"><div class="muted">${htmlEsc(name)}</div><div style="font-size:28px;font-weight:bold">${n}</div></div>`).join("");
+ const locations=[...new Set(rows.map(x=>x.lokacija))].sort((a,b)=>a.localeCompare(b,"hr"));
+ $("dashLocations").innerHTML='<tr><th>Lokacija</th><th>Došlo</th><th>Završilo</th><th>Bez odjave</th></tr>'+locations.map(loc=>{const r=dosli.filter(x=>x.lokacija===loc);return `<tr><td>${htmlEsc(loc)}</td><td>${r.length}</td><td>${r.filter(x=>x.odlazak).length}</td><td>${r.filter(x=>!x.odlazak).length}</td></tr>`}).join("");
+ if(!locations.length)$("dashLocations").innerHTML+='<tr><td colspan="4">Nema evidentiranih događaja za odabrani datum.</td></tr>';
+}
 function coordRender(){
+ coordDashboardRender();
  const a=coordFiltered();$("coordSummary").textContent=`Prikazano zapisa: ${a.length}. Evidencija obuhvaća samo stvarno zabilježene događaje.`;
  $("coordTable").innerHTML='<tr><th>Učenik</th><th>Škola</th><th>Lokacija</th><th>Datum</th><th>Događaj</th><th>Vrijeme</th></tr>'+a.map(x=>'<tr><td>'+htmlEsc(x.ucenik)+'</td><td>'+htmlEsc(x.skola||'—')+'</td><td>'+htmlEsc(x.lokacija||'—')+'</td><td>'+htmlEsc(x.datum)+'</td><td>'+htmlEsc(x.dogadaj)+'</td><td>'+htmlEsc(x.vrijeme||'—')+'</td></tr>').join('');
 }
@@ -550,6 +583,7 @@ function coordExport(){
   say("Excel datoteka preuzeta. Izvezeno zapisa: "+rows.length);
  }catch(e){say("Excel izvoz nije uspio: "+(e?.message||e));}
 }
+$("dashDatum").value=dayBounds().date;$("dashDatum").addEventListener("change",coordDashboardRender);
 $("coordRefresh").onclick=coordRefresh;$("coordCsv").onclick=coordExport;
 ["coordOd","coordDo","coordIme","coordLok","coordSkola"].forEach(id=>$(id).addEventListener("input",coordRender));
 
