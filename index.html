@@ -1,6 +1,6 @@
 <!doctype html>
 <html lang="hr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Evidencija prakse V9.8.1 GPS test</title>
+<title>Evidencija prakse V9.8.2 GPS poboljšanje</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <style>
@@ -69,7 +69,7 @@ table th,table td{padding:6px 5px;border-bottom:1px solid #e5e7eb;text-align:lef
 <div id="tab-roditelji" class="hidden"><h3>Roditelji</h3><div class="info"><b>Dodaj roditelja / skrbnika</b><input id="rod-ime" placeholder="Ime i prezime"><input id="rod-email" type="email" placeholder="E-mail"><input id="rod-mob" placeholder="Mobitel"><button onclick="addRoditelj()">Dodaj roditelja</button></div><button onclick="loadSimple('Roditelji','roditeljiList')">Osvježi roditelje</button><div id="roditeljiList"></div></div>
 </div>
 <button id="logout">Odjava</button></div>
-<div id="msg"></div><p class="muted">V9.8.1 GPS test · evidencija prakse · prijava izostanka · potvrda odlaska · administracija</p>
+<div id="msg"></div><p class="muted">V9.8.2 GPS poboljšanje · evidencija prakse · prijava izostanka · potvrda odlaska · administracija</p>
 </div></div><script>
 const SUPABASE_URL="https://mfpysfuzcoampyrzyern.supabase.co"; const SUPABASE_KEY="sb_publishable_qcv2gskJS57eOspClvEVKA_DLMSrFrA"; const sb=window.supabase.createClient(SUPABASE_URL,SUPABASE_KEY);
 const $=x=>document.getElementById(x), say=x=>$("msg").textContent=x;
@@ -115,18 +115,52 @@ async function load(){
  say(prethodniBezOdjave.length?`UPOZORENJE: Za ${prethodniBezOdjave.length} prethodnih dana nedostaje odjava. Otvorite Moja evidencija i obratite se voditelju radionice radi potvrde odlaska.`:"");
  if(!isAdmin) { await loadKartica(); }
 }
-function gps(){return new Promise((res,rej)=>navigator.geolocation.getCurrentPosition(res,rej,{enableHighAccuracy:true,timeout:20000,maximumAge:0}))}
+function gps(){
+ // Višestruka očitanja: prihvati samo svježe koordinate i zadrži najpreciznije.
+ return new Promise((resolve,reject)=>{
+  if(!navigator.geolocation){reject(new Error("Preglednik ne podržava GPS."));return}
+  let best=null, count=0, watchId=null, timer=null, finished=false;
+  const limit=45000;
+  const finish=(error)=>{
+   if(finished)return;finished=true;
+   if(timer!==null)clearTimeout(timer);
+   if(watchId!==null)navigator.geolocation.clearWatch(watchId);
+   if(best)resolve(best);else reject(error||new Error("GPS nije vratio nijedno valjano očitanje."));
+  };
+  timer=setTimeout(()=>finish(new Error("Isteklo vrijeme čekanja GPS-a (45 s).")),limit);
+  try{
+   watchId=navigator.geolocation.watchPosition(p=>{
+    if(finished)return;
+    const c=p.coords;
+    if(!Number.isFinite(c.latitude)||!Number.isFinite(c.longitude)||!Number.isFinite(c.accuracy)||c.accuracy<0)return;
+    // Ne koristi staro očitanje iz predmemorije.
+    if(Date.now()-p.timestamp>15000)return;
+    count++;
+    if(!best||c.accuracy<best.coords.accuracy)best=p;
+    const lat=Number(student?.latitude),lon=Number(student?.longitude);
+    const d=dist(c.latitude,c.longitude,lat,lon);
+    const good=c.accuracy<=Number(student?.max_gps_preciznost)&&d<=Number(student?.radijus);
+    const box=$("gpsDiagnostic");
+    if(box){showGpsDiagnostic(best);box.textContent+=`\nOčitanja: ${count} · čekanje do 45 s${good?" · precizna lokacija pronađena":""}`;}
+    if(good)finish();
+   },e=>{
+    // Ako imamo barem jedno očitanje, vrati ga radi dijagnostike.
+    finish(new Error(e?.message||"Greška GPS-a."));
+   },{enableHighAccuracy:true,maximumAge:0,timeout:40000});
+  }catch(e){finish(e)}
+ });
+}
 function showGpsDiagnostic(p){
  const lat=Number(student?.latitude), lon=Number(student?.longitude);
  const phoneLat=p.coords.latitude, phoneLon=p.coords.longitude;
  const d=dist(phoneLat,phoneLon,lat,lon), acc=p.coords.accuracy;
  const valid=Number.isFinite(lat)&&Number.isFinite(lon)&&lat>=-90&&lat<=90&&lon>=-180&&lon<=180;
  const diag=$("gpsDiagnostic");diag.classList.remove("hidden");
- diag.textContent=`GPS DIJAGNOSTIKA V9.8.1\nLokacija učenika: ${student?.lokacija??"—"}\nMobitel: ${phoneLat.toFixed(7)}, ${phoneLon.toFixed(7)}\nKoordinate iz Učenici: ${student?.latitude??"—"}, ${student?.longitude??"—"}\nGPS preciznost: ${Math.round(acc)} m\nUdaljenost: ${valid?Math.round(d)+" m":"NEISPRAVNE KOORDINATE"}\nDopušteni radijus: ${student?.radijus??"—"} m\nVrijeme GPS očitanja: ${new Date(p.timestamp).toLocaleString("hr-HR")}\nStatus: ${!valid?"PROVJERITI PODATKE UČENIKA":acc>Number(student?.max_gps_preciznost)?"GPS NEDOVOLJNO PRECIZAN":d>Number(student?.radijus)?"IZVAN RADIJUSA":"UNUTAR RADIJUSA"}`;
+ diag.textContent=`GPS DIJAGNOSTIKA V9.8.2\nLokacija učenika: ${student?.lokacija??"—"}\nMobitel: ${phoneLat.toFixed(7)}, ${phoneLon.toFixed(7)}\nKoordinate iz Učenici: ${student?.latitude??"—"}, ${student?.longitude??"—"}\nGPS preciznost: ${Math.round(acc)} m\nUdaljenost: ${valid?Math.round(d)+" m":"NEISPRAVNE KOORDINATE"}\nDopušteni radijus: ${student?.radijus??"—"} m\nVrijeme GPS očitanja: ${new Date(p.timestamp).toLocaleString("hr-HR")}\nStatus: ${!valid?"PROVJERITI PODATKE UČENIKA":acc>Number(student?.max_gps_preciznost)?"GPS NEDOVOLJNO PRECIZAN":d>Number(student?.radijus)?"IZVAN RADIJUSA":"UNUTAR RADIJUSA"}`;
  return {d,acc};
 }
 async function testGps(){
- say("Očitavam GPS bez spremanja evidencije…");
+ say("Tražim precizniju GPS lokaciju (do 45 sekundi), bez spremanja evidencije…");
  try{
   await load();if(!student){say("Nema učitanog učenika.");return}
   const p=await gps();showGpsDiagnostic(p);say("GPS provjera završena. Ništa nije upisano u evidenciju.");
@@ -140,6 +174,7 @@ async function record(kind){
  if(kind==="DOLAZAK"&&arr){say("Dolazak je danas već evidentiran.");return}
  if(kind==="ODLAZAK"&&!arr){say("Prvo morate evidentirati dolazak.");return}
  if(kind==="ODLAZAK"&&dep){say("Odlazak je danas već evidentiran. Dan je zaključan.");return}
+ say("Tražim preciznije GPS očitanje (do 45 sekundi)…");
  let p;try{p=await gps()}catch(e){say("GPS lokaciju nije moguće očitati. Uključite lokaciju i dopustite pristup pregledniku.");return}
  const {acc,d}=showGpsDiagnostic(p);
  if(acc>Number(student.max_gps_preciznost)){say(`GPS nije dovoljno precizan (${Math.round(acc)} m). Potrebno je ${student.max_gps_preciznost} m ili bolje. Pokušajte ponovno na otvorenom.`);return}
