@@ -1,6 +1,6 @@
 <!doctype html>
 <html lang="hr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Evidencija prakse V9.8.2 GPS poboljšanje</title>
+<title>Evidencija prakse V9.8</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <style>
@@ -14,7 +14,7 @@ table th,table td{padding:6px 5px;border-bottom:1px solid #e5e7eb;text-align:lef
 <h1>Evidencija prakse</h1>
 <div id="login"><input id="email" type="email" placeholder="Email"><input id="password" type="password" placeholder="Lozinka"><button id="loginBtn">Prijava</button></div>
 <div id="app" class="hidden"><div class="info" id="info"></div><div class="info" id="status"></div>
-<div id="studentActions"><button id="gpsTestBtn" type="button" style="background:#475569">Provjeri GPS (bez evidentiranja)</button><div id="gpsDiagnostic" class="info hidden" style="white-space:pre-line;overflow-wrap:anywhere;border:1px solid #94a3b8"></div><button id="dolazak">Evidentiraj DOLAZAK</button><button id="odlazak" class="red">Evidentiraj ODLAZAK</button><button id="prijaviIzostanakBtn" type="button" style="background:#d97706">Prijavi IZOSTANAK</button><div id="izostanakForm" class="info hidden"><h3>Prijavi izostanak</h3><p class="muted">Izostanak možete prijaviti s bilo koje lokacije. GPS se ne provjerava.</p><label>Od</label><input id="izostanakOd" type="date"><label>Do</label><input id="izostanakDo" type="date"><label>Razlog</label><textarea id="izostanakRazlog" rows="3" placeholder="Npr. bolest" style="box-sizing:border-box;width:100%;padding:14px;margin:7px 0;border-radius:10px;border:1px solid #ccc;font-size:16px"></textarea><button id="posaljiIzostanak" type="button">Pošalji prijavu</button><div id="mojiIzostanci"></div></div><button id="karticaBtn" type="button">Moja kartica učenika</button><div id="karticaPanel" class="info hidden"><h3>Kartica učenika</h3><p class="muted">Unesite ili provjerite svoje podatke. Škola i razrednik podliježu potvrdi administratora.</p><label>Škola</label><select id="kartSkola"></select><label>Razred</label><input id="kartRazred" placeholder="npr. 2. razred"><label>Ime i prezime razrednika</label><input id="kartRazrednik" placeholder="Ime i prezime"><label>Moj mobitel</label><input id="kartMob" type="tel" placeholder="09..."><label>Roditelj/skrbnik – ime i prezime</label><input id="kartRod" placeholder="Ime i prezime"><label>Mobitel roditelja/skrbnika</label><input id="kartRodMob" type="tel"><label>E-mail roditelja/skrbnika</label><input id="kartRodEmail" type="email"><button id="kartSpremi" type="button">Spremi karticu</button><p id="kartStatus" class="muted"></p></div><button id="mojaEvidencijaBtn" type="button">Moja evidencija</button><div id="mojaEvidencija" class="hidden"><h3>Moja evidencija</h3><div style="display:flex;gap:6px;flex-wrap:wrap"><button id="mojDanas" type="button" style="flex:1">Danas</button><button id="mojMjesec" type="button" style="flex:1">Ovaj mjesec</button><button id="mojUkupno" type="button" style="flex:1">Ukupno</button></div><div id="mojaSummary" class="info hidden"></div><div style="overflow:auto"><table id="mojaTable" style="width:100%;border-collapse:collapse;font-size:13px"></table></div></div></div>
+<div id="studentActions"><button id="dolazak">Evidentiraj DOLAZAK</button><button id="odlazak" class="red">Evidentiraj ODLAZAK</button><button id="prijaviIzostanakBtn" type="button" style="background:#d97706">Prijavi IZOSTANAK</button><div id="izostanakForm" class="info hidden"><h3>Prijavi izostanak</h3><p class="muted">Izostanak možete prijaviti s bilo koje lokacije. GPS se ne provjerava.</p><label>Od</label><input id="izostanakOd" type="date"><label>Do</label><input id="izostanakDo" type="date"><label>Razlog</label><textarea id="izostanakRazlog" rows="3" placeholder="Npr. bolest" style="box-sizing:border-box;width:100%;padding:14px;margin:7px 0;border-radius:10px;border:1px solid #ccc;font-size:16px"></textarea><button id="posaljiIzostanak" type="button">Pošalji prijavu</button><div id="mojiIzostanci"></div></div><button id="karticaBtn" type="button">Moja kartica učenika</button><div id="karticaPanel" class="info hidden"><h3>Kartica učenika</h3><p class="muted">Unesite ili provjerite svoje podatke. Škola i razrednik podliježu potvrdi administratora.</p><label>Škola</label><select id="kartSkola"></select><label>Razred</label><input id="kartRazred" placeholder="npr. 2. razred"><label>Ime i prezime razrednika</label><input id="kartRazrednik" placeholder="Ime i prezime"><label>Moj mobitel</label><input id="kartMob" type="tel" placeholder="09..."><label>Roditelj/skrbnik – ime i prezime</label><input id="kartRod" placeholder="Ime i prezime"><label>Mobitel roditelja/skrbnika</label><input id="kartRodMob" type="tel"><label>E-mail roditelja/skrbnika</label><input id="kartRodEmail" type="email"><button id="kartSpremi" type="button">Spremi karticu</button><p id="kartStatus" class="muted"></p></div><button id="mojaEvidencijaBtn" type="button">Moja evidencija</button><div id="mojaEvidencija" class="hidden"><h3>Moja evidencija</h3><div style="display:flex;gap:6px;flex-wrap:wrap"><button id="mojDanas" type="button" style="flex:1">Danas</button><button id="mojMjesec" type="button" style="flex:1">Ovaj mjesec</button><button id="mojUkupno" type="button" style="flex:1">Ukupno</button></div><div id="mojaSummary" class="info hidden"></div><div style="overflow:auto"><table id="mojaTable" style="width:100%;border-collapse:collapse;font-size:13px"></table></div></div></div>
 <div id="coordBox" class="hidden"><hr><h2>Pregled evidencije – koordinatorice i voditelji</h2>
 <div class="info" id="coordDashboard" style="border:1px solid #dbe3ef">
 <h3 style="margin-top:0">Nadzorna ploča V9.8</h3>
@@ -69,7 +69,7 @@ table th,table td{padding:6px 5px;border-bottom:1px solid #e5e7eb;text-align:lef
 <div id="tab-roditelji" class="hidden"><h3>Roditelji</h3><div class="info"><b>Dodaj roditelja / skrbnika</b><input id="rod-ime" placeholder="Ime i prezime"><input id="rod-email" type="email" placeholder="E-mail"><input id="rod-mob" placeholder="Mobitel"><button onclick="addRoditelj()">Dodaj roditelja</button></div><button onclick="loadSimple('Roditelji','roditeljiList')">Osvježi roditelje</button><div id="roditeljiList"></div></div>
 </div>
 <button id="logout">Odjava</button></div>
-<div id="msg"></div><p class="muted">V9.8.2 GPS poboljšanje · evidencija prakse · prijava izostanka · potvrda odlaska · administracija</p>
+<div id="msg"></div><p class="muted">V9.8 · evidencija prakse · prijava izostanka · potvrda odlaska · administracija</p>
 </div></div><script>
 const SUPABASE_URL="https://mfpysfuzcoampyrzyern.supabase.co"; const SUPABASE_KEY="sb_publishable_qcv2gskJS57eOspClvEVKA_DLMSrFrA"; const sb=window.supabase.createClient(SUPABASE_URL,SUPABASE_KEY);
 const $=x=>document.getElementById(x), say=x=>$("msg").textContent=x;
@@ -115,68 +115,15 @@ async function load(){
  say(prethodniBezOdjave.length?`UPOZORENJE: Za ${prethodniBezOdjave.length} prethodnih dana nedostaje odjava. Otvorite Moja evidencija i obratite se voditelju radionice radi potvrde odlaska.`:"");
  if(!isAdmin) { await loadKartica(); }
 }
-function gps(){
- // Višestruka očitanja: prihvati samo svježe koordinate i zadrži najpreciznije.
- return new Promise((resolve,reject)=>{
-  if(!navigator.geolocation){reject(new Error("Preglednik ne podržava GPS."));return}
-  let best=null, count=0, watchId=null, timer=null, finished=false;
-  const limit=45000;
-  const finish=(error)=>{
-   if(finished)return;finished=true;
-   if(timer!==null)clearTimeout(timer);
-   if(watchId!==null)navigator.geolocation.clearWatch(watchId);
-   if(best)resolve(best);else reject(error||new Error("GPS nije vratio nijedno valjano očitanje."));
-  };
-  timer=setTimeout(()=>finish(new Error("Isteklo vrijeme čekanja GPS-a (45 s).")),limit);
-  try{
-   watchId=navigator.geolocation.watchPosition(p=>{
-    if(finished)return;
-    const c=p.coords;
-    if(!Number.isFinite(c.latitude)||!Number.isFinite(c.longitude)||!Number.isFinite(c.accuracy)||c.accuracy<0)return;
-    // Ne koristi staro očitanje iz predmemorije.
-    if(Date.now()-p.timestamp>15000)return;
-    count++;
-    if(!best||c.accuracy<best.coords.accuracy)best=p;
-    const lat=Number(student?.latitude),lon=Number(student?.longitude);
-    const d=dist(c.latitude,c.longitude,lat,lon);
-    const good=c.accuracy<=Number(student?.max_gps_preciznost)&&d<=Number(student?.radijus);
-    const box=$("gpsDiagnostic");
-    if(box){showGpsDiagnostic(best);box.textContent+=`\nOčitanja: ${count} · čekanje do 45 s${good?" · precizna lokacija pronađena":""}`;}
-    if(good)finish();
-   },e=>{
-    // Ako imamo barem jedno očitanje, vrati ga radi dijagnostike.
-    finish(new Error(e?.message||"Greška GPS-a."));
-   },{enableHighAccuracy:true,maximumAge:0,timeout:40000});
-  }catch(e){finish(e)}
- });
-}
-function showGpsDiagnostic(p){
- const lat=Number(student?.latitude), lon=Number(student?.longitude);
- const phoneLat=p.coords.latitude, phoneLon=p.coords.longitude;
- const d=dist(phoneLat,phoneLon,lat,lon), acc=p.coords.accuracy;
- const valid=Number.isFinite(lat)&&Number.isFinite(lon)&&lat>=-90&&lat<=90&&lon>=-180&&lon<=180;
- const diag=$("gpsDiagnostic");diag.classList.remove("hidden");
- diag.textContent=`GPS DIJAGNOSTIKA V9.8.2\nLokacija učenika: ${student?.lokacija??"—"}\nMobitel: ${phoneLat.toFixed(7)}, ${phoneLon.toFixed(7)}\nKoordinate iz Učenici: ${student?.latitude??"—"}, ${student?.longitude??"—"}\nGPS preciznost: ${Math.round(acc)} m\nUdaljenost: ${valid?Math.round(d)+" m":"NEISPRAVNE KOORDINATE"}\nDopušteni radijus: ${student?.radijus??"—"} m\nVrijeme GPS očitanja: ${new Date(p.timestamp).toLocaleString("hr-HR")}\nStatus: ${!valid?"PROVJERITI PODATKE UČENIKA":acc>Number(student?.max_gps_preciznost)?"GPS NEDOVOLJNO PRECIZAN":d>Number(student?.radijus)?"IZVAN RADIJUSA":"UNUTAR RADIJUSA"}`;
- return {d,acc};
-}
-async function testGps(){
- say("Tražim precizniju GPS lokaciju (do 45 sekundi), bez spremanja evidencije…");
- try{
-  await load();if(!student){say("Nema učitanog učenika.");return}
-  const p=await gps();showGpsDiagnostic(p);say("GPS provjera završena. Ništa nije upisano u evidenciju.");
- }catch(e){say("GPS provjera nije uspjela: "+(e?.message||e));}
-}
-$("gpsTestBtn").onclick=testGps;
-
+function gps(){return new Promise((res,rej)=>navigator.geolocation.getCurrentPosition(res,rej,{enableHighAccuracy:true,timeout:20000,maximumAge:0}))}
 async function record(kind){
  say("Provjeravam GPS lokaciju…"); await load();
  const arr=events.find(e=>e.dogadaj==="DOLAZAK"), dep=events.find(e=>e.dogadaj==="ODLAZAK");
  if(kind==="DOLAZAK"&&arr){say("Dolazak je danas već evidentiran.");return}
  if(kind==="ODLAZAK"&&!arr){say("Prvo morate evidentirati dolazak.");return}
  if(kind==="ODLAZAK"&&dep){say("Odlazak je danas već evidentiran. Dan je zaključan.");return}
- say("Tražim preciznije GPS očitanje (do 45 sekundi)…");
  let p;try{p=await gps()}catch(e){say("GPS lokaciju nije moguće očitati. Uključite lokaciju i dopustite pristup pregledniku.");return}
- const {acc,d}=showGpsDiagnostic(p);
+ const acc=p.coords.accuracy, d=dist(p.coords.latitude,p.coords.longitude,Number(student.latitude),Number(student.longitude));
  if(acc>Number(student.max_gps_preciznost)){say(`GPS nije dovoljno precizan (${Math.round(acc)} m). Potrebno je ${student.max_gps_preciznost} m ili bolje. Pokušajte ponovno na otvorenom.`);return}
  if(d>Number(student.radijus)){say(`Niste unutar dopuštene lokacije. Udaljenost je približno ${Math.round(d)} m, dopušteno ${student.radijus} m.`);return}
  const {data:{user}}=await sb.auth.getUser();
